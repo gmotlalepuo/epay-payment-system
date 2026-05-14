@@ -1,0 +1,204 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+
+interface QrCode {
+  id: string
+  token: string
+  description: string
+  amount: number
+  currency: string
+  qr_image_url: string | null
+  single_use: boolean
+  is_active: boolean
+  paid_count: number
+  expiry_at: string | null
+  created_at: string
+}
+
+export default function QrCodesListPage() {
+  const [qrCodes, setQrCodes] = useState<QrCode[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [pendingId, setPendingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    void load()
+  }, [])
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/qr-codes')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to load QR codes')
+      setQrCodes(data.qrCodes ?? [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function toggle(id: string, isActive: boolean) {
+    setPendingId(id)
+    try {
+      const res = await fetch(`/api/qr-codes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !isActive }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error('Could not update QR code', { description: data.error })
+        return
+      }
+      setQrCodes((prev) =>
+        prev.map((q) => (q.id === id ? { ...q, is_active: !isActive } : q)),
+      )
+      toast.success(!isActive ? 'QR code activated' : 'QR code deactivated')
+    } finally {
+      setPendingId(null)
+    }
+  }
+
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('Link copied')
+    } catch {
+      toast.error('Could not copy link')
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">Payment QR codes</h1>
+          <p className="text-gray-600 mt-1">
+            Generate QR codes for items or services. Anyone can scan to pay you.
+          </p>
+        </div>
+        <Button asChild>
+          <Link href="/dashboard/qr-codes/new">+ New QR</Link>
+        </Button>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-gray-500">Loading…</p>
+      ) : qrCodes.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <p className="text-gray-600 mb-4">You haven't created any QR codes yet.</p>
+            <Button asChild>
+              <Link href="/dashboard/qr-codes/new">Create your first QR</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {qrCodes.map((q) => {
+            const expired = q.expiry_at && new Date(q.expiry_at) <= new Date()
+            const exhausted = q.single_use && q.paid_count > 0
+            const payable = q.is_active && !expired && !exhausted
+
+            const payUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/pay/${q.token}`
+
+            return (
+              <Card key={q.id}>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="truncate">{q.description}</CardTitle>
+                      <CardDescription>
+                        ${Number(q.amount).toFixed(2)} {q.currency}
+                      </CardDescription>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {payable ? (
+                        <Badge variant="default">Active</Badge>
+                      ) : exhausted ? (
+                        <Badge variant="secondary">Paid</Badge>
+                      ) : expired ? (
+                        <Badge variant="outline">Expired</Badge>
+                      ) : (
+                        <Badge variant="outline">Inactive</Badge>
+                      )}
+                      {q.single_use && <Badge variant="outline">Single use</Badge>}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {q.qr_image_url && (
+                    <div className="flex justify-center bg-gray-50 rounded-md py-3">
+                      {/* qr_image_url is a data: URL so plain <img> is fine here */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={q.qr_image_url}
+                        alt={`QR code for ${q.description}`}
+                        width={200}
+                        height={200}
+                        className="block"
+                      />
+                    </div>
+                  )}
+
+                  <div className="text-xs text-gray-500 break-all">
+                    <span className="font-medium">Pay link: </span>
+                    {payUrl}
+                  </div>
+
+                  <div className="text-xs text-gray-500">
+                    Paid {q.paid_count} {q.paid_count === 1 ? 'time' : 'times'}
+                    {q.expiry_at &&
+                      ` · expires ${new Date(q.expiry_at).toLocaleString()}`}
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copy(payUrl)}
+                    >
+                      Copy link
+                    </Button>
+                    {!exhausted && !expired && (
+                      <Button
+                        type="button"
+                        variant={q.is_active ? 'outline' : 'default'}
+                        size="sm"
+                        onClick={() => toggle(q.id, q.is_active)}
+                        disabled={pendingId === q.id}
+                      >
+                        {pendingId === q.id && (
+                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        )}
+                        {q.is_active ? 'Deactivate' : 'Reactivate'}
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
