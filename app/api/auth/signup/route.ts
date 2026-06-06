@@ -28,8 +28,20 @@ export async function POST(request: NextRequest) {
     })
 
     if (authError) {
-      return NextResponse.json({ error: authError.message }, { status: 400 })
+      let message = authError.message ?? 'Signup failed'
+      const normalized = message.toLowerCase()
+      if (
+        normalized.includes('already registered') ||
+        normalized.includes('duplicate') ||
+        normalized.includes('user already exists') ||
+        normalized.includes('user already registered')
+      ) {
+        message = 'An account with this email already exists. Please log in instead.'
+      }
+
+      return NextResponse.json({ error: message }, { status: 409 })
     }
+
     if (!authData.user) {
       return NextResponse.json({ error: 'Signup failed' }, { status: 500 })
     }

@@ -1,18 +1,11 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { FormEvent, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -76,32 +69,47 @@ export default function Page() {
   }
 
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">Sign up</CardTitle>
-              <CardDescription>Create a new account</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSignUp}>
-                <div className="flex flex-col gap-6">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(79,70,229,0.16),transparent_18%),radial-gradient(circle_at_bottom_left,rgba(34,211,238,0.18),transparent_24%),linear-gradient(180deg,#eff6ff,#eef2ff)] flex items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
+      <div className="w-full max-w-3xl">
+        <div className="mb-8 flex items-center justify-between text-sm text-slate-700">
+          <Link href="/" className="font-semibold hover:text-slate-900">Home</Link>
+          <Link href="/auth/login" className="font-semibold hover:text-slate-900">Login</Link>
+        </div>
+        <div className="grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+          <div className="space-y-6">
+            <span className="glass-pill">Premium onboarding</span>
+            <h1 className="text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
+              Create a wallet that feels premium instantly.
+            </h1>
+            <p className="max-w-xl text-base leading-8 text-slate-600 sm:text-lg">
+              Build your account on a secure payment platform that gives you control and clarity from day one.
+            </p>
+          </div>
+
+          <div className="relative rounded-3xl border border-white/30 bg-white/85 p-8 shadow-[0_35px_120px_-35px_rgba(15,23,42,0.3)] backdrop-blur-2xl">
+            <div className="absolute -right-12 top-8 h-32 w-32 rounded-full bg-slate-300/15 blur-3xl" />
+            <div className="absolute left-6 bottom-10 h-24 w-24 rounded-full bg-slate-500/10 blur-3xl" />
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">Create account</p>
+                <h2 className="text-2xl font-semibold text-slate-950">Fast, secure signup</h2>
+              </div>
+              <form onSubmit={handleSignUp} className="space-y-5">
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="m@example.com"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <div className="flex items-center">
-                      <Label htmlFor="password">Password</Label>
-                    </div>
+                    <Label htmlFor="password">Password</Label>
                     <Input
                       id="password"
                       type="password"
@@ -111,9 +119,7 @@ export default function Page() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <div className="flex items-center">
-                      <Label htmlFor="repeat-password">Repeat Password</Label>
-                    </div>
+                    <Label htmlFor="repeat-password">Repeat password</Label>
                     <Input
                       id="repeat-password"
                       type="password"
@@ -122,24 +128,23 @@ export default function Page() {
                       onChange={(e) => setRepeatPassword(e.target.value)}
                     />
                   </div>
-                  {error && <p className="text-sm text-red-500">{error}</p>}
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isLoading ? 'Creating an account…' : 'Sign up'}
-                  </Button>
                 </div>
-                <div className="mt-4 text-center text-sm">
-                  Already have an account?{' '}
-                  <Link
-                    href="/auth/login"
-                    className="underline underline-offset-4"
-                  >
-                    Login
-                  </Link>
-                </div>
+
+                {error && <p className="text-sm text-red-500">{error}</p>}
+
+                <Button type="submit" className="w-full rounded-full px-5 py-3 text-sm font-semibold" disabled={isLoading}>
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isLoading ? 'Creating an account…' : 'Sign up'}
+                </Button>
               </form>
-            </CardContent>
-          </Card>
+              <div className="rounded-3xl border border-slate-200/80 bg-slate-50/90 p-4 text-center text-sm text-slate-600">
+                Already have an account?{' '}
+                <Link href="/auth/login" className="font-semibold text-slate-950 hover:text-slate-700">
+                  Login
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
-import { createNotification } from '@/lib/notifications'
+import { createNotification, notifyAdmins } from '@/lib/notifications'
 
 /**
  * POST /api/transfers
@@ -121,20 +121,33 @@ export async function POST(request: NextRequest) {
       createNotification(supabase, {
         user_id: user.id,
         type: 'transaction',
+        category: 'payment',
         title: qrCodeId ? 'Payment Sent' : 'Transfer Sent',
         message: senderMsg,
         link_url: '/dashboard/transactions',
+        reference_id: txn.transaction_id,
       }),
       counterparty?.user_id
         ? createNotification(supabase, {
             user_id: counterparty.user_id,
             type: 'transaction',
+            category: 'payment',
             title: qrCodeId ? 'Payment Received' : 'Transfer Received',
             message: receiverMsg,
             link_url: '/dashboard/transactions',
+            reference_id: txn.transaction_id,
           })
         : Promise.resolve(null),
     ])
+
+    await notifyAdmins(supabase, {
+      type: 'transaction',
+      category: 'payment',
+      title: qrCodeId ? 'QR payment completed' : 'Transfer completed',
+      message: `${user.email} sent $${amount.toFixed(2)}${qrCodeId ? ' via QR payment' : ''}.`,
+      link_url: '/admin',
+      reference_id: txn.transaction_id,
+    })
 
     await supabase.from('audit_logs').insert({
       user_id: user.id,
@@ -158,6 +171,7 @@ export async function POST(request: NextRequest) {
       await createNotification(supabase, {
         user_id: user.id,
         type: 'wallet',
+        category: 'wallet',
         title: 'Low balance',
         message: `${label} is down to $${Number(senderWallet.balance).toFixed(2)}. Top up to keep transacting.`,
         link_url: `/dashboard/wallets/${fromWalletId}`,

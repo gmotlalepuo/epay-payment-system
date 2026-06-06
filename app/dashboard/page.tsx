@@ -80,7 +80,7 @@ export default function DashboardHome() {
         </div>
 
         {/* Total Balance Card */}
-        <Card className="mb-8 p-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+        <Card className="mb-8 p-6 bg-slate-950/95 text-white shadow-lg shadow-slate-900/10">
           <p className="text-sm font-medium opacity-90">Total Balance</p>
           <h2 className="text-4xl font-bold mt-2">${totalBalance.toFixed(2)}</h2>
           <p className="text-sm opacity-75 mt-4">{wallets.length} wallet(s)</p>
@@ -102,11 +102,7 @@ export default function DashboardHome() {
                     {wallet.wallet_number}
                   </p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  wallet.status === 'active'
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
-                }`}>
+                <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-800 text-xs font-medium">
                   {wallet.status}
                 </span>
               </div>
@@ -235,6 +231,7 @@ export default function DashboardHome() {
             </Card>
           </div>
         </div>
+
 
         {/* Info Section */}
         <Card className="p-6 bg-blue-50 border-blue-200">

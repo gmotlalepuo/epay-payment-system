@@ -1,8 +1,9 @@
 'use client'
 
-import Link from 'next/link'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { ShieldCheck, Sparkles, Users, Activity, BarChart3, Lock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -37,180 +38,215 @@ export default function Home() {
 
   if (isLoading || isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-slate-100 via-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-600 mx-auto mb-4" />
+          <p className="text-slate-600">Loading...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Navigation */}
-      <nav className="border-b border-blue-200 bg-white/80 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Image
-              src="/logo.png"
-              alt="Digital Wallet Logo"
-              width={40}
-              height={40}
-              className="rounded"
-            />
-            <span className="text-xl font-bold text-blue-600">Digital Wallet</span>
+    <div className="min-h-screen bg-linear-to-br from-slate-100 via-slate-50 to-slate-100">
+      <nav className="sticky top-0 z-30 border-b border-white/40 bg-white/70 backdrop-blur-xl shadow-sm shadow-slate-900/5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-3xl bg-linear-to-br from-sky-500 to-indigo-600 text-white shadow-lg shadow-sky-500/20">
+              <span className="text-lg font-semibold">E</span>
+            </div>
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Epay Wallet</p>
+              <h1 className="text-lg font-semibold text-slate-900">Digital finance made effortless</h1>
+            </div>
           </div>
-          <div className="flex gap-4">
+
+          <div className="flex items-center gap-3">
             <Link href="/auth/login">
-              <Button variant="ghost">Login</Button>
+              <Button variant="ghost" className="rounded-full px-5 py-2 text-sm font-semibold text-slate-700 hover:text-slate-900">
+                Login
+              </Button>
             </Link>
             <Link href="/auth/signup">
-              <Button>Get Started</Button>
+              <Button className="rounded-full px-6 py-2.5 text-sm font-semibold">
+                Get Started
+              </Button>
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
-          Your Digital Wallet,{' '}
-          <span className="text-blue-600">Reimagined</span>
-        </h1>
-        <p className="text-lg sm:text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-          Send money instantly, pay with QR codes, and manage your finances with
-          complete security and transparency.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link href="/auth/signup">
-            <Button size="lg" className="w-full sm:w-auto">
-              Create Account
-            </Button>
-          </Link>
-          <Link href="/auth/login">
-            <Button size="lg" variant="outline" className="w-full sm:w-auto">
-              Sign In
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* Features Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
-          Why Choose Our Wallet?
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="bg-white rounded-lg p-8 shadow-sm border border-blue-100">
-            <div className="text-3xl mb-4">💰</div>
-            <h3 className="text-xl font-semibold mb-3">Instant Transfers</h3>
-            <p className="text-gray-600">
-              Send money to friends and family instantly with no hidden fees.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg p-8 shadow-sm border border-blue-100">
-            <div className="text-3xl mb-4">🔒</div>
-            <h3 className="text-xl font-semibold mb-3">Bank-Level Security</h3>
-            <p className="text-gray-600">
-              Your funds are protected with advanced encryption and security protocols.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg p-8 shadow-sm border border-blue-100">
-            <div className="text-3xl mb-4">📱</div>
-            <h3 className="text-xl font-semibold mb-3">QR Code Payments</h3>
-            <p className="text-gray-600">
-              Generate a QR code for anything you sell — anyone can scan it to pay you instantly.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg p-8 shadow-sm border border-blue-100">
-            <div className="text-3xl mb-4">📊</div>
-            <h3 className="text-xl font-semibold mb-3">Real-Time Insights</h3>
-            <p className="text-gray-600">
-              Track your spending and manage your budget with detailed analytics.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg p-8 shadow-sm border border-blue-100">
-            <div className="text-3xl mb-4">⚡</div>
-            <h3 className="text-xl font-semibold mb-3">Fast & Reliable</h3>
-            <p className="text-gray-600">
-              Experience lightning-fast transactions with 99.9% uptime guarantee.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-lg p-8 shadow-sm border border-blue-100">
-            <div className="text-3xl mb-4">🛡️</div>
-            <h3 className="text-xl font-semibold mb-3">Dispute Resolution</h3>
-            <p className="text-gray-600">
-              Full support for complaint management and transaction disputes.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* CTA Section */}
-      <div className="bg-blue-600 text-white py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-6">
-            Ready to take control of your finances?
-          </h2>
-          <p className="text-xl text-blue-100 mb-8">
-            Join thousands of users enjoying secure, instant digital payments.
-          </p>
-          <Link href="/auth/signup">
-            <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100">
-              Open Your Wallet Today
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <h4 className="text-white font-semibold mb-4">Product</h4>
-              <ul className="space-y-2">
-                <li><a href="#" className="hover:text-white">Features</a></li>
-                <li><a href="#" className="hover:text-white">Security</a></li>
-                <li><a href="#" className="hover:text-white">Pricing</a></li>
-              </ul>
+      <main className="relative overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.22),transparent_20%),radial-gradient(circle_at_top_right,rgba(168,85,247,0.18),transparent_24%)] opacity-80" />
+        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <section className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div className="space-y-8">
+              <div className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-white/80 px-4 py-2 text-sm font-semibold text-sky-700 shadow-sm shadow-sky-900/5 backdrop-blur-xl">
+                <span className="h-2.5 w-2.5 rounded-full bg-sky-500 animate-pulse" />
+                Trusted payments for digital brands
+              </div>
+              <div className="space-y-6">
+                <h2 className="text-5xl font-semibold tracking-tight text-slate-950 sm:text-6xl">
+                  Trusted wallet tools for modern finance.
+                </h2>
+                <p className="max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
+                  Build trust, move money faster, and stay in control with secure, reliable wallet features for everyday users.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Link href="/auth/signup" className="inline-flex w-full items-center justify-center rounded-full bg-linear-to-r from-sky-500 to-indigo-600 px-8 py-4 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:scale-[1.01] sm:w-auto">
+                  Get Started
+                </Link>
+                <Link href="/auth/login" className="inline-flex w-full items-center justify-center rounded-full border border-slate-200 bg-white/90 px-8 py-4 text-sm font-semibold text-slate-700 transition sm:w-auto">
+                  Login
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {['Secure payments', 'Easy transfers', 'Clear tracking', 'Trusted support'].map((label) => (
+                  <div key={label} className="rounded-3xl border border-slate-200/80 bg-white/85 px-4 py-4 text-center shadow-sm shadow-slate-900/5">
+                    <p className="text-sm font-semibold text-slate-900">{label}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div>
-              <h4 className="text-white font-semibold mb-4">Company</h4>
-              <ul className="space-y-2">
-                <li><a href="#" className="hover:text-white">About</a></li>
-                <li><a href="#" className="hover:text-white">Blog</a></li>
-                <li><a href="#" className="hover:text-white">Careers</a></li>
-              </ul>
+
+            <div className="relative">
+              <div className="hero-panel overflow-hidden p-8 shadow-2xl shadow-slate-900/10">
+                <div className="flex flex-col gap-6">
+                  <div className="flex items-center justify-between rounded-3xl bg-slate-950/95 px-5 py-4 text-white shadow-[0_18px_45px_-24px_rgba(15,23,42,0.8)]">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.3em] text-sky-300">Balance</p>
+                      <p className="mt-3 text-3xl font-semibold">$12,450.00</p>
+                    </div>
+                    <div className="rounded-3xl bg-slate-900/90 px-4 py-3 text-sm text-slate-200">
+                      Active
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 rounded-[1.75rem] border border-slate-200/80 bg-white/80 p-5 shadow-sm shadow-slate-900/5">
+                    {[
+                      { label: 'Top ups', value: '$3.2k' },
+                      { label: 'QR payments', value: '$5.4k' },
+                      { label: 'Transfer volume', value: '$4.8k' },
+                    ].map((item) => (
+                      <div key={item.label} className="flex items-center justify-between gap-4 rounded-3xl bg-slate-100/80 px-4 py-4">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                          <p className="text-xs text-slate-500">Fast, transparent data</p>
+                        </div>
+                        <p className="text-lg font-semibold text-slate-950">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="pointer-events-none absolute -right-12 top-10 h-44 w-44 rounded-full bg-slate-400/15 blur-3xl" />
+              <div className="pointer-events-none absolute left-8 top-0 h-28 w-28 rounded-full bg-slate-500/10 blur-3xl" />
             </div>
-            <div>
-              <h4 className="text-white font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2">
-                <li><a href="#" className="hover:text-white">Privacy</a></li>
-                <li><a href="#" className="hover:text-white">Terms</a></li>
-                <li><a href="#" className="hover:text-white">Contact</a></li>
-              </ul>
+          </section>
+
+          <section className="mt-20 space-y-6">
+            <div className="grid gap-6 lg:grid-cols-3">
+              {[
+                {
+                  title: 'Instant Settlements',
+                  description: 'Real-time wallet transfers and QR checkout with elegant motion.',
+                  icon: <Activity className="h-5 w-5 text-sky-500" />,
+                },
+                {
+                  title: 'Secure by design',
+                  description: 'End-to-end encryption, accountability, and strong fraud protection.',
+                  icon: <ShieldCheck className="h-5 w-5 text-violet-500" />,
+                },
+                {
+                  title: 'Mobile-ready',
+                  description: 'Responsive layouts and touch-first UI for phone and tablet.',
+                  icon: <Users className="h-5 w-5 text-cyan-500" />,
+                },
+              ].map((feature) => (
+                <div key={feature.title} className="glass-card p-6">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-3xl bg-slate-100 text-slate-900 shadow-sm shadow-slate-900/5">
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-950">{feature.title}</h3>
+                  <p className="mt-3 text-base leading-7 text-slate-600">{feature.description}</p>
+                </div>
+              ))}
             </div>
-            <div>
-              <h4 className="text-white font-semibold mb-4">Support</h4>
-              <ul className="space-y-2">
-                <li><a href="#" className="hover:text-white">Help Center</a></li>
-                <li><a href="#" className="hover:text-white">Status</a></li>
-                <li><a href="#" className="hover:text-white">Contact Us</a></li>
-              </ul>
+          </section>
+
+          <section className="mt-20 overflow-hidden rounded-[2.5rem] border border-white/70 bg-slate-950/95 px-6 py-16 shadow-[0_45px_140px_-60px_rgba(15,23,42,0.35)] backdrop-blur-2xl text-white sm:px-10">
+            <div className="relative mx-auto max-w-7xl">
+              <div className="pointer-events-none absolute inset-0 opacity-50">
+                <Image
+                  src="/placeholder.jpg"
+                  alt="Abstract finance background"
+                  fill
+                  className="object-cover opacity-40"
+                  priority={false}
+                />
+                <div className="absolute inset-0 bg-linear-to-br from-slate-950/80 via-slate-900/40 to-slate-950/90" />
+              </div>
+
+              <div className="relative space-y-8">
+                <div className="space-y-3">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-300/10 px-4 py-2 text-sm font-semibold text-sky-200 shadow-sm shadow-sky-500/10">
+                    <Sparkles className="h-4 w-4" />
+                    Premium membership perks
+                  </div>
+                  <h2 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+                    What you get as a member of Epay Wallet
+                  </h2>
+                  <p className="max-w-3xl text-lg leading-8 text-slate-300">
+                    Become a verified user and enjoy frictionless payments, trusted wallet security, clear spending insights, and a unified digital wallet experience built for modern financial lives.
+                  </p>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-3">
+                  {[
+                    {
+                      title: 'Priority support',
+                      detail: 'Fast help when you need it, with dedicated onboarding and customer success.',
+                      icon: <Users className="h-6 w-6 text-cyan-300" />,
+                    },
+                    {
+                      title: 'Advanced tracking',
+                      detail: 'Detailed transaction insights, monthly statements, and spending alerts.',
+                      icon: <BarChart3 className="h-6 w-6 text-sky-300" />,
+                    },
+                    {
+                      title: 'Trusted protection',
+                      detail: 'Multi-layer account security, fraud monitoring, and secure wallet lock.',
+                      icon: <Lock className="h-6 w-6 text-violet-300" />,
+                    },
+                  ].map((benefit) => (
+                    <div key={benefit.title} className="rounded-[1.75rem] border border-slate-200/10 bg-slate-950/80 p-6 shadow-lg shadow-slate-950/30 backdrop-blur-xl">
+                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-900/80 text-white">
+                        {benefit.icon}
+                      </div>
+                      <h3 className="text-xl font-semibold text-white">{benefit.title}</h3>
+                      <p className="mt-3 text-sm leading-6 text-slate-300">{benefit.detail}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid gap-6 rounded-[1.75rem] border border-slate-200/10 bg-slate-900/80 p-8 sm:grid-cols-3">
+                  {[
+                    { stat: '24/7', label: 'Support availability' },
+                    { stat: '99.98%', label: 'Platform uptime' },
+                    { stat: '500K+', label: 'Payments processed monthly' },
+                  ].map((item) => (
+                    <div key={item.label} className="space-y-2 text-slate-200">
+                      <p className="text-3xl font-semibold">{item.stat}</p>
+                      <p className="text-sm text-slate-400">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="border-t border-gray-800 pt-8 text-center">
-            <p>&copy; 2026 Digital Wallet. All rights reserved.</p>
-          </div>
+          </section>
         </div>
-      </footer>
+      </main>
     </div>
   )
 }

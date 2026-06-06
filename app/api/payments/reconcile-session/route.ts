@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
-import { createNotification } from '@/lib/notifications'
+import { createNotification, notifyAdmins } from '@/lib/notifications'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
@@ -117,9 +117,18 @@ export async function POST(request: NextRequest) {
     await createNotification(supabase, {
       user_id: userId,
       type: 'transaction',
+      category: 'payment',
       title: 'Top-up successful',
       message: `$${amount.toFixed(2)} has been added to your wallet`,
       link_url: `/dashboard/wallets/${walletId}`,
+    })
+
+    await notifyAdmins(supabase, {
+      type: 'transaction',
+      category: 'payment',
+      title: 'Wallet top-up reconciled',
+      message: `User ${userId} reconciled a $${amount.toFixed(2)} top-up.`,
+      link_url: '/admin',
     })
 
     await supabase.from('audit_logs').insert({

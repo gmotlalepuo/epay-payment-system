@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
-import { createNotification } from '@/lib/notifications'
+import { createNotification, notifyAdmins } from '@/lib/notifications'
 import { NextRequest, NextResponse } from 'next/server'
 
 // POST /api/complaints - Create a new complaint
@@ -64,9 +64,20 @@ export async function POST(request: NextRequest) {
     await createNotification(supabase, {
       user_id: user.id,
       type: 'complaint',
+      category: 'complaint',
       title: 'Complaint Submitted',
       message: `Your complaint has been submitted. We will review it shortly.`,
       link_url: '/dashboard/complaints',
+      reference_id: complaint.id,
+    })
+
+    await notifyAdmins(supabase, {
+      type: 'complaint',
+      category: 'complaint',
+      title: 'New complaint submitted',
+      message: `A new complaint was filed by ${user.email}.`,
+      link_url: '/admin',
+      reference_id: complaint.id,
     })
 
     // Log the action

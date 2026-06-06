@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { createNotification } from '@/lib/notifications'
+import { createNotification, notifyAdmins } from '@/lib/notifications'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
@@ -64,9 +64,18 @@ async function handlePaymentIntentSucceeded(
   await createNotification(supabase, {
     user_id: userId,
     type: 'transaction',
+    category: 'payment',
     title: 'Top-up successful',
     message: `$${amount.toFixed(2)} has been added to your wallet`,
     link_url: `/dashboard/wallets/${walletId}`,
+  })
+
+  await notifyAdmins(supabase, {
+    type: 'transaction',
+    category: 'payment',
+    title: 'Wallet top-up completed',
+    message: `User ${userId} topped up $${amount.toFixed(2)}.`,
+    link_url: '/admin',
   })
 
   await supabase.from('audit_logs').insert({
@@ -92,6 +101,7 @@ async function handlePaymentIntentFailed(
   await createNotification(supabase, {
     user_id: userId,
     type: 'transaction',
+    category: 'payment',
     title: 'Top-up failed',
     message: `Your top-up of $${amount.toFixed(2)} could not be processed. Please try again.`,
     link_url: '/dashboard/topup',
