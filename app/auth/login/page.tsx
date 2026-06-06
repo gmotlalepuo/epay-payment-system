@@ -1,6 +1,5 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -16,6 +15,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase/client'
 
 export default function Page() {
   const [email, setEmail] = useState('')
@@ -28,21 +28,24 @@ export default function Page() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
+      const supabase = createClient()
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
         password,
-        options: {
-          emailRedirectTo:
-            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
-            `${window.location.origin}/auth/callback`,
-        },
       })
-      if (error) throw error
+
+      if (error) {
+        throw error
+      }
+
+      if (!data || !data.session || !data.user) {
+        throw new Error('Login failed')
+      }
+
       toast.success('Welcome back')
       router.push(nextPath)
     } catch (error: unknown) {
@@ -107,7 +110,7 @@ export default function Page() {
                 <div className="mt-4 text-center text-sm">
                   Don&apos;t have an account?{' '}
                   <Link
-                    href="/auth/sign-up"
+                    href="/auth/signup"
                     className="underline underline-offset-4"
                   >
                     Sign up
