@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
+import { createNotification } from '@/lib/notifications'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
       completed_at: new Date().toISOString(),
     })
 
-    await supabase.from('notifications').insert({
+    await createNotification(supabase, {
       user_id: userId,
       type: 'transaction',
       title: 'Top-up successful',

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
+import { createNotification } from '@/lib/notifications'
 
 /**
  * POST /api/transfers
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
       : `You received $${amount.toFixed(2)}`
 
     await Promise.all([
-      supabase.from('notifications').insert({
+      createNotification(supabase, {
         user_id: user.id,
         type: 'transaction',
         title: qrCodeId ? 'Payment Sent' : 'Transfer Sent',
@@ -125,14 +126,14 @@ export async function POST(request: NextRequest) {
         link_url: '/dashboard/transactions',
       }),
       counterparty?.user_id
-        ? supabase.from('notifications').insert({
+        ? createNotification(supabase, {
             user_id: counterparty.user_id,
             type: 'transaction',
             title: qrCodeId ? 'Payment Received' : 'Transfer Received',
             message: receiverMsg,
             link_url: '/dashboard/transactions',
           })
-        : Promise.resolve(),
+        : Promise.resolve(null),
     ])
 
     await supabase.from('audit_logs').insert({
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
 
     if (senderWallet && Number(senderWallet.balance) < LOW_BALANCE_THRESHOLD) {
       const label = senderWallet.name || senderWallet.wallet_number
-      await supabase.from('notifications').insert({
+      await createNotification(supabase, {
         user_id: user.id,
         type: 'wallet',
         title: 'Low balance',

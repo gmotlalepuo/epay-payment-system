@@ -12,6 +12,41 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = await createClient()
+
+    // Ensure public.users row exists (backfill if the DB trigger isn't present)
+    const { data: existingUser, error: readErr } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (readErr) {
+      console.error('[wallets] profile read error:', readErr)
+      return NextResponse.json({ error: readErr.message }, { status: 500 })
+    }
+
+    if (!existingUser) {
+      const metadata = (user.user_metadata ?? {}) as Record<string, string>
+      const { data: inserted, error: insertErr } = await supabase
+        .from('users')
+        .insert({
+          id: user.id,
+          email: user.email ?? '',
+          phone_number: metadata.phone ?? `+placeholder_${user.id}`,
+          first_name: metadata.first_name ?? 'User',
+          last_name: metadata.last_name ?? '',
+          role: 'customer',
+          status: 'active',
+          password_hash: '',
+        })
+        .select()
+        .single()
+
+      if (insertErr) {
+        console.error('[wallets] backfill insert error:', insertErr)
+        return NextResponse.json({ error: insertErr.message }, { status: 500 })
+      }
+    }
     const { data: wallets, error } = await supabase
       .from('wallets')
       .select('*')

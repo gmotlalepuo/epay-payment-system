@@ -89,7 +89,16 @@ export default function Page() {
                       onChange={(e) => setPassword(e.target.value)}
                     />
                   </div>
-                  {error && <p className="text-sm text-red-500">{error}</p>}
+                  <div className="flex items-center justify-between">
+                    {error ? (
+                      <p className="text-sm text-red-500">{error}</p>
+                    ) : (
+                      <div />
+                    )}
+                    <Link href="/auth/forgot" className="text-sm text-blue-600 hover:underline">
+                      Forgot password?
+                    </Link>
+                  </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isLoading ? 'Logging in…' : 'Login'}

@@ -32,9 +32,9 @@ DROP TABLE IF EXISTS public.merchants                CASCADE;
 DROP TABLE IF EXISTS public.wallet_transactions      CASCADE;  -- replaced by transactions
 
 -- complaints.merchant_id is now stale
-ALTER TABLE public.complaints           DROP COLUMN IF EXISTS merchant_id;
+ALTER TABLE IF EXISTS public.complaints           DROP COLUMN IF EXISTS merchant_id;
 -- notification_preferences.merchant_notifications is also stale
-ALTER TABLE public.notification_preferences DROP COLUMN IF EXISTS merchant_notifications;
+ALTER TABLE IF EXISTS public.notification_preferences DROP COLUMN IF EXISTS merchant_notifications;
 
 -- ============================================================================
 -- 2. Collapse user roles

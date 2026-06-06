@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
+import { createNotification } from '@/lib/notifications'
 import { NextRequest, NextResponse } from 'next/server'
 
 // POST /api/complaints - Create a new complaint
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create notification
-    await supabase.from('notifications').insert({
+    await createNotification(supabase, {
       user_id: user.id,
       type: 'complaint',
       title: 'Complaint Submitted',

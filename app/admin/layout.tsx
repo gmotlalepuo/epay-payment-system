@@ -1,3 +1,20 @@
+import { ReactNode } from 'react'
+import { getCurrentUser, getUserRole } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+
+export default async function AdminLayout({ children }: { children: ReactNode }) {
+  const user = await getCurrentUser()
+  if (!user) return redirect(`/auth/login?next=/admin`)
+
+  const role = await getUserRole()
+  if (role !== 'super_admin') return redirect('/dashboard')
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <main className="max-w-7xl mx-auto p-6">{children}</main>
+    </div>
+  )
+}
 'use client'
 
 import Link from 'next/link'

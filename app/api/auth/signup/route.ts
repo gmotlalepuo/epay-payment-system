@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, firstName, lastName, phoneNumber } = await request.json()
+    const { email, password } = await request.json()
 
-    if (!email || !password || !firstName || !lastName || !phoneNumber) {
+    if (!email || !password) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
     if (password.length < 8) {
@@ -24,11 +24,6 @@ export async function POST(request: NextRequest) {
         emailRedirectTo:
           process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
           `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/auth/callback`,
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-          phone: phoneNumber,
-        },
       },
     })
 
@@ -38,15 +33,6 @@ export async function POST(request: NextRequest) {
     if (!authData.user) {
       return NextResponse.json({ error: 'Signup failed' }, { status: 500 })
     }
-
-    // public.users row is created automatically by the on_auth_user_created
-    // trigger, but its phone_number defaults to a placeholder. Update it now
-    // with the real one the user typed in. Email isn't unique elsewhere yet,
-    // so this is the simplest backfill that doesn't race with the trigger.
-    await supabase
-      .from('users')
-      .update({ phone_number: phoneNumber })
-      .eq('id', authData.user.id)
 
     return NextResponse.json({
       message: 'Signup successful. Please check your email to confirm your account.',

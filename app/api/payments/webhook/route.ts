@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { createNotification } from '@/lib/notifications'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
@@ -60,7 +61,7 @@ async function handlePaymentIntentSucceeded(
     completed_at: new Date().toISOString(),
   })
 
-  await supabase.from('notifications').insert({
+  await createNotification(supabase, {
     user_id: userId,
     type: 'transaction',
     title: 'Top-up successful',
@@ -88,7 +89,7 @@ async function handlePaymentIntentFailed(
   // Create failed transaction record
   // Failed top-ups: type='topup' would violate the (from OR to) check since
   // we have no wallet to credit. Skip the transactions row and just notify.
-  await supabase.from('notifications').insert({
+  await createNotification(supabase, {
     user_id: userId,
     type: 'transaction',
     title: 'Top-up failed',
