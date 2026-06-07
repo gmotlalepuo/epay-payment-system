@@ -1,18 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useRouter } from 'next/navigation'
 import { DashboardMetrics } from '@/components/dashboard-metrics'
+import { ListPagination, ListToolbar, usePagedItems } from '@/components/list-tools'
 
 export default function DashboardHome() {
   const [user, setUser] = useState<any>(null)
   const [wallets, setWallets] = useState<any[]>([])
   const [totalBalance, setTotalBalance] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [walletSearch, setWalletSearch] = useState('')
+  const [walletStatus, setWalletStatus] = useState('all')
   const router = useRouter()
   const supabase = createClient()
 
@@ -53,6 +56,21 @@ export default function DashboardHome() {
     loadDashboard()
   }, [router, supabase])
 
+  const filteredWallets = useMemo(() => {
+    const term = walletSearch.trim().toLowerCase()
+    return wallets.filter((wallet) => {
+      const matchesSearch =
+        !term ||
+        [wallet.name, wallet.wallet_number, wallet.currency, wallet.status]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term))
+
+      return matchesSearch && (walletStatus === 'all' || wallet.status === walletStatus)
+    })
+  }, [wallets, walletSearch, walletStatus])
+
+  const walletPage = usePagedItems(filteredWallets, 6, `${walletSearch}|${walletStatus}`)
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -87,8 +105,31 @@ export default function DashboardHome() {
         </Card>
 
         {/* Wallets Section */}
+        {wallets.length > 0 && (
+          <div className="mb-4">
+            <ListToolbar
+              search={walletSearch}
+              onSearchChange={setWalletSearch}
+              searchPlaceholder="Search wallets"
+              filters={[
+                {
+                  label: 'Status',
+                  value: walletStatus,
+                  onChange: setWalletStatus,
+                  options: [
+                    { label: 'All', value: 'all' },
+                    { label: 'Active', value: 'active' },
+                    { label: 'Inactive', value: 'inactive' },
+                    { label: 'Suspended', value: 'suspended' },
+                  ],
+                },
+              ]}
+            />
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {wallets.map((wallet) => (
+          {walletPage.pagedItems.map((wallet) => (
             <Card key={wallet.id} className="p-6 hover:shadow-lg transition-shadow">
               <div className="flex justify-between items-start mb-2">
                 <div className="min-w-0 flex-1">
@@ -119,6 +160,24 @@ export default function DashboardHome() {
             </Card>
           ))}
         </div>
+
+        {wallets.length > 0 && filteredWallets.length === 0 && (
+          <Card className="p-8 text-center mb-8">
+            <p className="text-gray-600">No wallets match your search or filters.</p>
+          </Card>
+        )}
+
+        {filteredWallets.length > 0 && (
+          <div className="mb-8">
+            <ListPagination
+              page={walletPage.page}
+              totalPages={walletPage.totalPages}
+              totalItems={filteredWallets.length}
+              pageSize={6}
+              onPageChange={walletPage.setPage}
+            />
+          </div>
+        )}
 
         {/* Create Wallet Button */}
         {wallets.length === 0 && (

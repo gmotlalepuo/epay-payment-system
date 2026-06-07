@@ -1,16 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { useRouter } from 'next/navigation'
+import { formatTimestamp, ListPagination, ListToolbar, usePagedItems } from '@/components/list-tools'
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<any[]>([])
   const [walletIds, setWalletIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [directionFilter, setDirectionFilter] = useState('all')
   const router = useRouter()
   const supabase = createClient()
 
@@ -54,6 +59,39 @@ export default function TransactionsPage() {
     return 'neutral'
   }
 
+  const filteredTransactions = useMemo(() => {
+    const term = search.trim().toLowerCase()
+
+    return transactions.filter((transaction) => {
+      const dir = direction(transaction)
+      const matchesSearch =
+        !term ||
+        [
+          transaction.type,
+          transaction.status,
+          transaction.description,
+          transaction.reference_id,
+          transaction.currency,
+          String(transaction.amount),
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term))
+
+      return (
+        matchesSearch &&
+        (typeFilter === 'all' || transaction.type === typeFilter) &&
+        (statusFilter === 'all' || transaction.status === statusFilter) &&
+        (directionFilter === 'all' || dir === directionFilter)
+      )
+    })
+  }, [transactions, search, typeFilter, statusFilter, directionFilter, walletIds])
+
+  const { page, setPage, totalPages, pagedItems } = usePagedItems(
+    filteredTransactions,
+    10,
+    `${search}|${typeFilter}|${statusFilter}|${directionFilter}`,
+  )
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -68,23 +106,6 @@ export default function TransactionsPage() {
     }
   }
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'transfer':
-        return '↔️'
-      case 'payment':
-        return '💳'
-      case 'topup':
-        return '➕'
-      case 'withdrawal':
-        return '➖'
-      case 'refund':
-        return '↩️'
-      default:
-        return '💰'
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -96,18 +117,60 @@ export default function TransactionsPage() {
   return (
     <main className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col gap-4 mb-8 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Transaction History</h1>
-            <p className="text-gray-600 mt-1">All your transactions</p>
+            <p className="text-gray-600 mt-1">All your payments, transfers, and top-ups</p>
           </div>
           <Button asChild variant="outline">
             <Link href="/dashboard">Back to Dashboard</Link>
           </Button>
         </div>
 
-        {/* Transactions List */}
+        <div className="mb-4">
+          <ListToolbar
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search transactions"
+            filters={[
+              {
+                label: 'Type',
+                value: typeFilter,
+                onChange: setTypeFilter,
+                options: [
+                  { label: 'All', value: 'all' },
+                  { label: 'Transfers', value: 'transfer' },
+                  { label: 'Payments', value: 'payment' },
+                  { label: 'Top-ups', value: 'topup' },
+                  { label: 'Refunds', value: 'refund' },
+                ],
+              },
+              {
+                label: 'Status',
+                value: statusFilter,
+                onChange: setStatusFilter,
+                options: [
+                  { label: 'All', value: 'all' },
+                  { label: 'Completed', value: 'completed' },
+                  { label: 'Pending', value: 'pending' },
+                  { label: 'Processing', value: 'processing' },
+                  { label: 'Failed', value: 'failed' },
+                ],
+              },
+              {
+                label: 'Direction',
+                value: directionFilter,
+                onChange: setDirectionFilter,
+                options: [
+                  { label: 'All', value: 'all' },
+                  { label: 'Money in', value: 'in' },
+                  { label: 'Money out', value: 'out' },
+                ],
+              },
+            ]}
+          />
+        </div>
+
         {transactions.length === 0 ? (
           <Card className="p-8 text-center">
             <p className="text-gray-600 mb-4">No transactions yet</p>
@@ -115,53 +178,64 @@ export default function TransactionsPage() {
               <Link href="/dashboard/transfers">Make Your First Transfer</Link>
             </Button>
           </Card>
+        ) : filteredTransactions.length === 0 ? (
+          <Card className="p-8 text-center">
+            <p className="text-gray-600">No transactions match your search or filters.</p>
+          </Card>
         ) : (
           <div className="space-y-4">
-            {transactions.map((transaction) => (
-              <Card
-                key={transaction.id}
-                className="p-6 flex items-center justify-between hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="text-2xl">
-                    {getTypeIcon(transaction.type)}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold capitalize">{transaction.type}</p>
-                    <p className="text-sm text-gray-600">
-                      {transaction.description || `${transaction.type} transaction`}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(transaction.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
+            {pagedItems.map((transaction) => {
+              const dir = direction(transaction)
+              const sign = dir === 'out' ? '-' : dir === 'in' ? '+' : ''
+              const amountColor =
+                dir === 'out' ? 'text-red-600' : dir === 'in' ? 'text-green-600' : ''
 
-                <div className="flex items-center gap-6">
-                  <div className="text-right">
-                    {(() => {
-                      const dir = direction(transaction)
-                      const sign = dir === 'out' ? '-' : dir === 'in' ? '+' : ''
-                      const color =
-                        dir === 'out' ? 'text-red-600' : dir === 'in' ? 'text-green-600' : ''
-                      return (
-                        <p className={`font-bold text-lg ${color}`}>
-                          {sign}${Number(transaction.amount).toFixed(2)}
-                        </p>
-                      )
-                    })()}
-                    <p className="text-sm text-gray-600">{transaction.currency}</p>
+              return (
+                <Card
+                  key={transaction.id}
+                  className="p-6 flex flex-col gap-4 hover:shadow-md transition-shadow sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100 text-sm font-semibold uppercase text-slate-700">
+                      {transaction.type?.slice(0, 2) ?? 'tx'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold capitalize">{transaction.type}</p>
+                      <p className="text-sm text-gray-600 truncate">
+                        {transaction.description || `${transaction.type} transaction`}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatTimestamp(transaction.completed_at ?? transaction.created_at)}
+                        {transaction.reference_id && ` · ${transaction.reference_id}`}
+                      </p>
+                    </div>
                   </div>
-                  <span
-                    className={`px-4 py-2 rounded-full text-xs font-semibold ${getStatusColor(
-                      transaction.status
-                    )}`}
-                  >
-                    {transaction.status}
-                  </span>
-                </div>
-              </Card>
-            ))}
+
+                  <div className="flex items-center justify-between gap-6 sm:justify-end">
+                    <div className="text-right">
+                      <p className={`font-bold text-lg ${amountColor}`}>
+                        {sign}${Number(transaction.amount).toFixed(2)}
+                      </p>
+                      <p className="text-sm text-gray-600">{transaction.currency}</p>
+                    </div>
+                    <span
+                      className={`px-4 py-2 rounded-full text-xs font-semibold ${getStatusColor(
+                        transaction.status,
+                      )}`}
+                    >
+                      {transaction.status}
+                    </span>
+                  </div>
+                </Card>
+              )
+            })}
+
+            <ListPagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={filteredTransactions.length}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </div>

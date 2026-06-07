@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { formatTimestamp, ListPagination, ListToolbar, usePagedItems } from '@/components/list-tools'
 
 interface AdminStats {
   totalUsers: number
@@ -51,6 +52,14 @@ export default function AdminDashboard() {
   const [complaints, setComplaints] = useState<Complaint[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
+  const [userSearch, setUserSearch] = useState('')
+  const [userStatus, setUserStatus] = useState('all')
+  const [transactionSearch, setTransactionSearch] = useState('')
+  const [transactionStatus, setTransactionStatus] = useState('all')
+  const [transactionType, setTransactionType] = useState('all')
+  const [complaintSearch, setComplaintSearch] = useState('')
+  const [complaintStatus, setComplaintStatus] = useState('all')
+  const [complaintPriority, setComplaintPriority] = useState('all')
   const supabase = createClient()
 
   useEffect(() => {
@@ -115,7 +124,6 @@ export default function AdminDashboard() {
         .from('users')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(5)
 
       setUsers(usersData || [])
 
@@ -124,7 +132,6 @@ export default function AdminDashboard() {
         .from('transactions')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(10)
 
       setTransactions(transactionsData || [])
 
@@ -134,7 +141,6 @@ export default function AdminDashboard() {
         .select('*')
         .neq('status', 'closed')
         .order('created_at', { ascending: false })
-        .limit(5)
 
       setComplaints(complaintsData || [])
     } catch (error) {
@@ -157,6 +163,65 @@ export default function AdminDashboard() {
     }
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
+
+  const filteredUsers = useMemo(() => {
+    const term = userSearch.trim().toLowerCase()
+    return users.filter((user) => {
+      const matchesSearch =
+        !term ||
+        [user.first_name, user.last_name, user.email, user.role, user.status]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term))
+
+      return matchesSearch && (userStatus === 'all' || user.status === userStatus)
+    })
+  }, [users, userSearch, userStatus])
+
+  const filteredTransactions = useMemo(() => {
+    const term = transactionSearch.trim().toLowerCase()
+    return transactions.filter((tx) => {
+      const matchesSearch =
+        !term ||
+        [tx.type, tx.status, String(tx.amount)]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term))
+
+      return (
+        matchesSearch &&
+        (transactionStatus === 'all' || tx.status === transactionStatus) &&
+        (transactionType === 'all' || tx.type === transactionType)
+      )
+    })
+  }, [transactions, transactionSearch, transactionStatus, transactionType])
+
+  const filteredComplaints = useMemo(() => {
+    const term = complaintSearch.trim().toLowerCase()
+    return complaints.filter((complaint) => {
+      const matchesSearch =
+        !term ||
+        [complaint.title, complaint.status, complaint.priority]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term))
+
+      return (
+        matchesSearch &&
+        (complaintStatus === 'all' || complaint.status === complaintStatus) &&
+        (complaintPriority === 'all' || complaint.priority === complaintPriority)
+      )
+    })
+  }, [complaints, complaintSearch, complaintStatus, complaintPriority])
+
+  const usersPage = usePagedItems(filteredUsers, 10, `${userSearch}|${userStatus}`)
+  const transactionsPage = usePagedItems(
+    filteredTransactions,
+    10,
+    `${transactionSearch}|${transactionStatus}|${transactionType}`,
+  )
+  const complaintsPage = usePagedItems(
+    filteredComplaints,
+    8,
+    `${complaintSearch}|${complaintStatus}|${complaintPriority}`,
+  )
 
   if (loading) {
     return <div className="text-center py-8">Loading admin dashboard...</div>
@@ -267,13 +332,14 @@ export default function AdminDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {users.map((user) => (
+                {users.slice(0, 5).map((user) => (
                   <div key={user.id} className="flex items-center justify-between">
                     <div>
                       <p className="font-medium">
                         {user.first_name} {user.last_name}
                       </p>
                       <p className="text-sm text-gray-600">{user.email}</p>
+                      <p className="text-xs text-gray-500">Joined {formatTimestamp(user.created_at)}</p>
                     </div>
                     <Badge className={getStatusColor(user.status)}>
                       {user.status}
@@ -293,9 +359,12 @@ export default function AdminDashboard() {
                 {complaints.length === 0 ? (
                   <p className="text-gray-600">No pending complaints</p>
                 ) : (
-                  complaints.map((complaint) => (
+                  complaints.slice(0, 5).map((complaint) => (
                     <div key={complaint.id} className="border-b pb-3">
                       <p className="font-medium">{complaint.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Submitted {formatTimestamp(complaint.created_at)}
+                      </p>
                       <div className="flex gap-2 mt-2">
                         <Badge className={getStatusColor(complaint.status)}>
                           {complaint.status}
@@ -319,6 +388,26 @@ export default function AdminDashboard() {
             <CardTitle>Users Management</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <ListToolbar
+                search={userSearch}
+                onSearchChange={setUserSearch}
+                searchPlaceholder="Search users"
+                filters={[
+                  {
+                    label: 'Status',
+                    value: userStatus,
+                    onChange: setUserStatus,
+                    options: [
+                      { label: 'All', value: 'all' },
+                      { label: 'Active', value: 'active' },
+                      { label: 'Inactive', value: 'inactive' },
+                      { label: 'Suspended', value: 'suspended' },
+                    ],
+                  },
+                ]}
+              />
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="border-b">
@@ -331,7 +420,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => (
+                  {usersPage.pagedItems.map((user) => (
                     <tr key={user.id} className="border-b hover:bg-gray-50">
                       <td className="py-2 px-2">
                         {user.first_name} {user.last_name}
@@ -344,13 +433,23 @@ export default function AdminDashboard() {
                         </Badge>
                       </td>
                       <td className="py-2 px-2">
-                        {new Date(user.created_at).toLocaleDateString()}
+                        {formatTimestamp(user.created_at)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {filteredUsers.length === 0 ? (
+              <p className="py-8 text-center text-sm text-gray-600">No users match your search or filters.</p>
+            ) : (
+              <ListPagination
+                page={usersPage.page}
+                totalPages={usersPage.totalPages}
+                totalItems={filteredUsers.length}
+                onPageChange={usersPage.setPage}
+              />
+            )}
           </CardContent>
         </Card>
       )}
@@ -361,6 +460,39 @@ export default function AdminDashboard() {
             <CardTitle>Recent Transactions</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <ListToolbar
+                search={transactionSearch}
+                onSearchChange={setTransactionSearch}
+                searchPlaceholder="Search transactions"
+                filters={[
+                  {
+                    label: 'Type',
+                    value: transactionType,
+                    onChange: setTransactionType,
+                    options: [
+                      { label: 'All', value: 'all' },
+                      { label: 'Transfers', value: 'transfer' },
+                      { label: 'Payments', value: 'payment' },
+                      { label: 'Top-ups', value: 'topup' },
+                      { label: 'Refunds', value: 'refund' },
+                    ],
+                  },
+                  {
+                    label: 'Status',
+                    value: transactionStatus,
+                    onChange: setTransactionStatus,
+                    options: [
+                      { label: 'All', value: 'all' },
+                      { label: 'Completed', value: 'completed' },
+                      { label: 'Pending', value: 'pending' },
+                      { label: 'Processing', value: 'processing' },
+                      { label: 'Failed', value: 'failed' },
+                    ],
+                  },
+                ]}
+              />
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="border-b">
@@ -372,7 +504,7 @@ export default function AdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((tx) => (
+                  {transactionsPage.pagedItems.map((tx) => (
                     <tr key={tx.id} className="border-b hover:bg-gray-50">
                       <td className="py-2 px-2 capitalize">{tx.type}</td>
                       <td className="py-2 px-2">${tx.amount.toFixed(2)}</td>
@@ -382,13 +514,25 @@ export default function AdminDashboard() {
                         </Badge>
                       </td>
                       <td className="py-2 px-2">
-                        {new Date(tx.created_at).toLocaleDateString()}
+                        {formatTimestamp(tx.created_at)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {filteredTransactions.length === 0 ? (
+              <p className="py-8 text-center text-sm text-gray-600">
+                No transactions match your search or filters.
+              </p>
+            ) : (
+              <ListPagination
+                page={transactionsPage.page}
+                totalPages={transactionsPage.totalPages}
+                totalItems={filteredTransactions.length}
+                onPageChange={transactionsPage.setPage}
+              />
+            )}
           </CardContent>
         </Card>
       )}
@@ -399,11 +543,49 @@ export default function AdminDashboard() {
             <CardTitle>Complaint Management</CardTitle>
           </CardHeader>
           <CardContent>
+            <div className="mb-4">
+              <ListToolbar
+                search={complaintSearch}
+                onSearchChange={setComplaintSearch}
+                searchPlaceholder="Search complaints"
+                filters={[
+                  {
+                    label: 'Status',
+                    value: complaintStatus,
+                    onChange: setComplaintStatus,
+                    options: [
+                      { label: 'All', value: 'all' },
+                      { label: 'Open', value: 'open' },
+                      { label: 'In progress', value: 'in_progress' },
+                      { label: 'Resolved', value: 'resolved' },
+                      { label: 'Closed', value: 'closed' },
+                      { label: 'Rejected', value: 'rejected' },
+                    ],
+                  },
+                  {
+                    label: 'Priority',
+                    value: complaintPriority,
+                    onChange: setComplaintPriority,
+                    options: [
+                      { label: 'All', value: 'all' },
+                      { label: 'Low', value: 'low' },
+                      { label: 'Medium', value: 'medium' },
+                      { label: 'High', value: 'high' },
+                      { label: 'Urgent', value: 'urgent' },
+                    ],
+                  },
+                ]}
+              />
+            </div>
             <div className="space-y-4">
               {complaints.length === 0 ? (
                 <p className="text-gray-600 text-center py-8">No complaints</p>
+              ) : filteredComplaints.length === 0 ? (
+                <p className="text-gray-600 text-center py-8">
+                  No complaints match your search or filters.
+                </p>
               ) : (
-                complaints.map((complaint) => (
+                complaintsPage.pagedItems.map((complaint) => (
                   <div
                     key={complaint.id}
                     className="border rounded-lg p-4 space-y-2"
@@ -412,7 +594,7 @@ export default function AdminDashboard() {
                       <div>
                         <h3 className="font-semibold">{complaint.title}</h3>
                         <p className="text-sm text-gray-600">
-                          {new Date(complaint.created_at).toLocaleDateString()}
+                          Submitted {formatTimestamp(complaint.created_at)}
                         </p>
                       </div>
                       <div className="space-x-2">
@@ -429,6 +611,15 @@ export default function AdminDashboard() {
                     </Button>
                   </div>
                 ))
+              )}
+              {filteredComplaints.length > 0 && (
+                <ListPagination
+                  page={complaintsPage.page}
+                  totalPages={complaintsPage.totalPages}
+                  totalItems={filteredComplaints.length}
+                  pageSize={8}
+                  onPageChange={complaintsPage.setPage}
+                />
               )}
             </div>
           </CardContent>

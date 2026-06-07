@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatTimestamp, ListPagination, ListToolbar, usePagedItems } from '@/components/list-tools'
 
 interface Complaint {
   id: string
@@ -30,6 +31,9 @@ export default function ComplaintsPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [priorityFilter, setPriorityFilter] = useState('all')
   const [newComplaint, setNewComplaint] = useState({
     title: '',
     complaint_type: 'other',
@@ -178,6 +182,36 @@ export default function ComplaintsPage() {
     return colors[priority] || 'bg-gray-100 text-gray-800'
   }
 
+  const filteredComplaints = useMemo(() => {
+    const term = search.trim().toLowerCase()
+
+    return complaints.filter((complaint) => {
+      const matchesSearch =
+        !term ||
+        [
+          complaint.title,
+          complaint.complaint_type,
+          complaint.status,
+          complaint.priority,
+          complaint.resolution_notes,
+        ]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term))
+
+      return (
+        matchesSearch &&
+        (statusFilter === 'all' || complaint.status === statusFilter) &&
+        (priorityFilter === 'all' || complaint.priority === priorityFilter)
+      )
+    })
+  }, [complaints, search, statusFilter, priorityFilter])
+
+  const { page, setPage, totalPages, pagedItems } = usePagedItems(
+    filteredComplaints,
+    6,
+    `${search}|${statusFilter}|${priorityFilter}`,
+  )
+
   return (
     <div className="space-y-6">
       <div>
@@ -298,15 +332,56 @@ export default function ComplaintsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {complaints.length > 0 && (
+            <div className="mb-4">
+              <ListToolbar
+                search={search}
+                onSearchChange={setSearch}
+                searchPlaceholder="Search complaints"
+                filters={[
+                  {
+                    label: 'Status',
+                    value: statusFilter,
+                    onChange: setStatusFilter,
+                    options: [
+                      { label: 'All', value: 'all' },
+                      { label: 'Open', value: 'open' },
+                      { label: 'In progress', value: 'in_progress' },
+                      { label: 'Resolved', value: 'resolved' },
+                      { label: 'Closed', value: 'closed' },
+                      { label: 'Rejected', value: 'rejected' },
+                    ],
+                  },
+                  {
+                    label: 'Priority',
+                    value: priorityFilter,
+                    onChange: setPriorityFilter,
+                    options: [
+                      { label: 'All', value: 'all' },
+                      { label: 'Low', value: 'low' },
+                      { label: 'Medium', value: 'medium' },
+                      { label: 'High', value: 'high' },
+                      { label: 'Urgent', value: 'urgent' },
+                    ],
+                  },
+                ]}
+              />
+            </div>
+          )}
+
           {loading ? (
             <p className="text-center py-8 text-gray-600">Loading complaints...</p>
           ) : complaints.length === 0 ? (
             <p className="text-center py-8 text-gray-600">
               No complaints submitted yet
             </p>
+          ) : filteredComplaints.length === 0 ? (
+            <p className="text-center py-8 text-gray-600">
+              No complaints match your search or filters.
+            </p>
           ) : (
             <div className="space-y-4">
-              {complaints.map((complaint) => {
+              {pagedItems.map((complaint) => {
                 const attachments = complaint.attachment_urls ?? []
                 return (
                   <div
@@ -317,7 +392,7 @@ export default function ComplaintsPage() {
                       <div>
                         <h3 className="font-semibold">{complaint.title}</h3>
                         <p className="text-sm text-gray-600">
-                          {new Date(complaint.created_at).toLocaleDateString()}
+                          Submitted {formatTimestamp(complaint.created_at)}
                         </p>
                       </div>
                       <div className="space-x-2">
@@ -379,6 +454,13 @@ export default function ComplaintsPage() {
                   </div>
                 )
               })}
+              <ListPagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={filteredComplaints.length}
+                pageSize={6}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </CardContent>

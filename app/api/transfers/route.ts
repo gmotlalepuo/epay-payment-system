@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
-import { createNotification, notifyAdmins } from '@/lib/notifications'
+import { createNotification, createServiceRoleClient, notifyAdmins } from '@/lib/notifications'
 
 /**
  * POST /api/transfers
@@ -104,11 +104,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Notifications for both parties (best-effort; doesn't fail the transfer)
-    const { data: counterparty } = await supabase
+    const serviceClient = createServiceRoleClient()
+    const notificationClient = serviceClient ?? supabase
+
+    const { data: counterparty, error: counterpartyError } = await (serviceClient ?? supabase)
       .from('wallets')
       .select('user_id')
       .eq('id', toWalletId)
       .single()
+
+    if (counterpartyError) {
+      console.error('[transfers] receiver lookup for notification failed:', counterpartyError.message)
+    }
 
     const senderMsg = qrCodeId
       ? `You paid $${amount.toFixed(2)} for ${description ?? 'a payment'}`
@@ -118,7 +125,7 @@ export async function POST(request: NextRequest) {
       : `You received $${amount.toFixed(2)}`
 
     await Promise.all([
-      createNotification(supabase, {
+      createNotification(notificationClient, {
         user_id: user.id,
         type: 'transaction',
         category: 'payment',
@@ -128,7 +135,7 @@ export async function POST(request: NextRequest) {
         reference_id: txn.transaction_id,
       }),
       counterparty?.user_id
-        ? createNotification(supabase, {
+        ? createNotification(notificationClient, {
             user_id: counterparty.user_id,
             type: 'transaction',
             category: 'payment',
@@ -157,6 +164,17 @@ export async function POST(request: NextRequest) {
       details: { amount, to_wallet_id: toWalletId, qr_code_id: qrCodeId ?? null },
       status: 'success',
     })
+
+    if (counterparty?.user_id) {
+      await notificationClient.from('audit_logs').insert({
+        user_id: counterparty.user_id,
+        action: qrCodeId ? 'qr_payment_received' : 'transfer_received',
+        resource_type: 'transaction',
+        resource_id: txn.transaction_id,
+        details: { amount, from_wallet_id: fromWalletId, qr_code_id: qrCodeId ?? null },
+        status: 'success',
+      })
+    }
 
     // Low-balance reminder: notify the sender if their wallet dropped below $5
     const LOW_BALANCE_THRESHOLD = 5

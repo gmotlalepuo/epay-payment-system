@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -13,8 +13,9 @@ import {
   Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { formatTimestamp, ListPagination, ListToolbar, usePagedItems } from '@/components/list-tools'
 
 interface Notification {
   id: string
@@ -49,6 +50,8 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [marking, setMarking] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
 
   useEffect(() => {
     void load()
@@ -96,8 +99,30 @@ export default function NotificationsPage() {
     router.push(dest)
   }
 
-  const filtered = filter === 'unread' ? items.filter((n) => !n.is_read) : items
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase()
+
+    return items.filter((n) => {
+      const matchesSearch =
+        !term ||
+        [n.title, n.message, n.type]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term))
+
+      return (
+        matchesSearch &&
+        (filter === 'all' || !n.is_read) &&
+        (typeFilter === 'all' || n.type === typeFilter)
+      )
+    })
+  }, [items, filter, search, typeFilter])
+
   const unreadCount = items.filter((n) => !n.is_read).length
+  const { page, setPage, totalPages, pagedItems } = usePagedItems(
+    filtered,
+    10,
+    `${filter}|${search}|${typeFilter}`,
+  )
 
   return (
     <div className="space-y-6">
@@ -121,7 +146,6 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      {/* Filter tabs */}
       <div className="flex gap-2">
         <Button
           variant={filter === 'all' ? 'default' : 'outline'}
@@ -139,19 +163,44 @@ export default function NotificationsPage() {
         </Button>
       </div>
 
+      {items.length > 0 && (
+        <ListToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search notifications"
+          filters={[
+            {
+              label: 'Type',
+              value: typeFilter,
+              onChange: setTypeFilter,
+              options: [
+                { label: 'All', value: 'all' },
+                { label: 'Transactions', value: 'transaction' },
+                { label: 'Security', value: 'security' },
+                { label: 'Wallet', value: 'wallet' },
+                { label: 'Complaints', value: 'complaint' },
+                { label: 'System', value: 'system' },
+              ],
+            },
+          ]}
+        />
+      )}
+
       {loading ? (
         <p className="text-gray-500 flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading...
         </p>
       ) : filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-gray-500">
-            {filter === 'unread' ? 'No unread notifications.' : 'No notifications yet.'}
+            {items.length === 0
+              ? 'No notifications yet.'
+              : 'No notifications match your search or filters.'}
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
-          {filtered.map((n) => (
+          {pagedItems.map((n) => (
             <button
               key={n.id}
               type="button"
@@ -174,17 +223,24 @@ export default function NotificationsPage() {
                   </div>
                   <p className="text-sm text-gray-700 mt-1">{n.message}</p>
                   <p className="text-xs text-gray-500 mt-2">
-                    {new Date(n.created_at).toLocaleString()}
+                    {formatTimestamp(n.created_at)}
                   </p>
                 </div>
               </div>
             </button>
           ))}
+
+          <ListPagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={filtered.length}
+            onPageChange={setPage}
+          />
         </div>
       )}
 
       <Button asChild variant="outline" className="w-full mt-4">
-        <Link href="/dashboard">← Back to dashboard</Link>
+        <Link href="/dashboard">Back to dashboard</Link>
       </Button>
     </div>
   )

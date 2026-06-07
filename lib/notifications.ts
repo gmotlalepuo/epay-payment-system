@@ -1,5 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js'
 
 export type NotificationPayload = {
   user_id: string
@@ -26,11 +25,29 @@ function categoryForType(type: NotificationPayload['type']): NotificationPayload
   }
 }
 
+export function createServiceRoleClient() {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceRoleKey) return null
+
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    },
+  )
+}
+
 export async function createNotification(
   supabase: SupabaseClient,
   payload: NotificationPayload,
 ) {
-  const { error } = await supabase.from('notifications').insert({
+  const client = createServiceRoleClient() ?? supabase
+
+  const { error } = await client.from('notifications').insert({
     user_id: payload.user_id,
     title: payload.title,
     message: payload.message,
@@ -49,21 +66,16 @@ export async function notifyAdmins(
   supabase: SupabaseClient,
   payload: Omit<NotificationPayload, 'user_id'>,
 ) {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!serviceRoleKey) {
+  const serviceClient = createServiceRoleClient()
+  if (!serviceClient) {
     console.error('[notifications] SUPABASE_SERVICE_ROLE_KEY is not configured')
     return
   }
 
-  const serviceClient = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    serviceRoleKey,
-  )
-
   const { data: admins, error } = await serviceClient
     .from('users')
     .select('id')
-    .in('role', ['super_admin', 'support_officer'])
+    .eq('role', 'super_admin')
 
   if (error) {
     console.error('[notifications] failed to fetch admin users:', error.message || error)
@@ -76,7 +88,7 @@ export async function notifyAdmins(
 
   await Promise.all(
     admins.map((admin) =>
-      createNotification(supabase, {
+      createNotification(serviceClient, {
         ...payload,
         user_id: admin.id,
       }),

@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatTimestamp, ListPagination, ListToolbar, usePagedItems } from '@/components/list-tools'
 
 interface QrCode {
   id: string
@@ -28,6 +28,9 @@ export default function QrCodesListPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pendingId, setPendingId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [useFilter, setUseFilter] = useState('all')
 
   useEffect(() => {
     void load()
@@ -79,9 +82,45 @@ export default function QrCodesListPage() {
     }
   }
 
+  function statusFor(q: QrCode) {
+    const expired = q.expiry_at && new Date(q.expiry_at) <= new Date()
+    const exhausted = q.single_use && q.paid_count > 0
+    if (exhausted) return 'paid'
+    if (expired) return 'expired'
+    if (!q.is_active) return 'inactive'
+    return 'active'
+  }
+
+  const filteredQrCodes = useMemo(() => {
+    const term = search.trim().toLowerCase()
+
+    return qrCodes.filter((q) => {
+      const status = statusFor(q)
+      const matchesSearch =
+        !term ||
+        [q.description, q.token, q.currency, String(q.amount), String(q.paid_count)]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(term))
+
+      return (
+        matchesSearch &&
+        (statusFilter === 'all' || status === statusFilter) &&
+        (useFilter === 'all' ||
+          (useFilter === 'single' && q.single_use) ||
+          (useFilter === 'reusable' && !q.single_use))
+      )
+    })
+  }, [qrCodes, search, statusFilter, useFilter])
+
+  const { page, setPage, totalPages, pagedItems } = usePagedItems(
+    filteredQrCodes,
+    8,
+    `${search}|${statusFilter}|${useFilter}`,
+  )
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Payment QR codes</h1>
           <p className="text-gray-600 mt-1">
@@ -89,7 +128,7 @@ export default function QrCodesListPage() {
           </p>
         </div>
         <Button asChild>
-          <Link href="/dashboard/qr-codes/new">+ New QR</Link>
+          <Link href="/dashboard/qr-codes/new">New QR</Link>
         </Button>
       </div>
 
@@ -100,7 +139,7 @@ export default function QrCodesListPage() {
       )}
 
       {loading ? (
-        <p className="text-gray-500">Loading…</p>
+        <p className="text-gray-500">Loading...</p>
       ) : qrCodes.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -111,92 +150,140 @@ export default function QrCodesListPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {qrCodes.map((q) => {
-            const expired = q.expiry_at && new Date(q.expiry_at) <= new Date()
-            const exhausted = q.single_use && q.paid_count > 0
-            const payable = q.is_active && !expired && !exhausted
+        <div className="space-y-4">
+          <ListToolbar
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Search QR codes"
+            filters={[
+              {
+                label: 'Status',
+                value: statusFilter,
+                onChange: setStatusFilter,
+                options: [
+                  { label: 'All', value: 'all' },
+                  { label: 'Active', value: 'active' },
+                  { label: 'Inactive', value: 'inactive' },
+                  { label: 'Paid', value: 'paid' },
+                  { label: 'Expired', value: 'expired' },
+                ],
+              },
+              {
+                label: 'Use',
+                value: useFilter,
+                onChange: setUseFilter,
+                options: [
+                  { label: 'All', value: 'all' },
+                  { label: 'Single use', value: 'single' },
+                  { label: 'Reusable', value: 'reusable' },
+                ],
+              },
+            ]}
+          />
 
-            const payUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/pay/${q.token}`
+          {filteredQrCodes.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-gray-500">
+                No QR codes match your search or filters.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pagedItems.map((q) => {
+                const expired = q.expiry_at && new Date(q.expiry_at) <= new Date()
+                const exhausted = q.single_use && q.paid_count > 0
+                const payable = q.is_active && !expired && !exhausted
+                const payUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/pay/${q.token}`
 
-            return (
-              <Card key={q.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="truncate">{q.description}</CardTitle>
-                      <CardDescription>
-                        ${Number(q.amount).toFixed(2)} {q.currency}
-                      </CardDescription>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      {payable ? (
-                        <Badge variant="default">Active</Badge>
-                      ) : exhausted ? (
-                        <Badge variant="secondary">Paid</Badge>
-                      ) : expired ? (
-                        <Badge variant="outline">Expired</Badge>
-                      ) : (
-                        <Badge variant="outline">Inactive</Badge>
+                return (
+                  <Card key={q.id}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="truncate">{q.description}</CardTitle>
+                          <CardDescription>
+                            ${Number(q.amount).toFixed(2)} {q.currency}
+                          </CardDescription>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {payable ? (
+                            <Badge variant="default">Active</Badge>
+                          ) : exhausted ? (
+                            <Badge variant="secondary">Paid</Badge>
+                          ) : expired ? (
+                            <Badge variant="outline">Expired</Badge>
+                          ) : (
+                            <Badge variant="outline">Inactive</Badge>
+                          )}
+                          {q.single_use && <Badge variant="outline">Single use</Badge>}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {q.qr_image_url && (
+                        <div className="flex justify-center bg-gray-50 rounded-md py-3">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={q.qr_image_url}
+                            alt={`QR code for ${q.description}`}
+                            width={200}
+                            height={200}
+                            className="block"
+                          />
+                        </div>
                       )}
-                      {q.single_use && <Badge variant="outline">Single use</Badge>}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {q.qr_image_url && (
-                    <div className="flex justify-center bg-gray-50 rounded-md py-3">
-                      {/* qr_image_url is a data: URL so plain <img> is fine here */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={q.qr_image_url}
-                        alt={`QR code for ${q.description}`}
-                        width={200}
-                        height={200}
-                        className="block"
-                      />
-                    </div>
-                  )}
 
-                  <div className="text-xs text-gray-500 break-all">
-                    <span className="font-medium">Pay link: </span>
-                    {payUrl}
-                  </div>
+                      <div className="text-xs text-gray-500 break-all">
+                        <span className="font-medium">Pay link: </span>
+                        {payUrl}
+                      </div>
 
-                  <div className="text-xs text-gray-500">
-                    Paid {q.paid_count} {q.paid_count === 1 ? 'time' : 'times'}
-                    {q.expiry_at &&
-                      ` · expires ${new Date(q.expiry_at).toLocaleString()}`}
-                  </div>
+                      <div className="text-xs text-gray-500">
+                        Paid {q.paid_count} {q.paid_count === 1 ? 'time' : 'times'}
+                        {q.expiry_at && ` · expires ${formatTimestamp(q.expiry_at)}`}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Created {formatTimestamp(q.created_at)}
+                      </div>
 
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copy(payUrl)}
-                    >
-                      Copy link
-                    </Button>
-                    {!exhausted && !expired && (
-                      <Button
-                        type="button"
-                        variant={q.is_active ? 'outline' : 'default'}
-                        size="sm"
-                        onClick={() => toggle(q.id, q.is_active)}
-                        disabled={pendingId === q.id}
-                      >
-                        {pendingId === q.id && (
-                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copy(payUrl)}
+                        >
+                          Copy link
+                        </Button>
+                        {!exhausted && !expired && (
+                          <Button
+                            type="button"
+                            variant={q.is_active ? 'outline' : 'default'}
+                            size="sm"
+                            onClick={() => toggle(q.id, q.is_active)}
+                            disabled={pendingId === q.id}
+                          >
+                            {pendingId === q.id && (
+                              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                            )}
+                            {q.is_active ? 'Deactivate' : 'Reactivate'}
+                          </Button>
                         )}
-                        {q.is_active ? 'Deactivate' : 'Reactivate'}
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+
+          <ListPagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={filteredQrCodes.length}
+            pageSize={8}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </div>

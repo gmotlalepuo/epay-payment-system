@@ -27,6 +27,8 @@ Then apply the schema:
 2. Run [`lib/db/schema.sql`](lib/db/schema.sql) once on a fresh project.
 3. Run [`lib/db/migrations/001-qr-redesign.sql`](lib/db/migrations/001-qr-redesign.sql) once.
 4. If `/pay/<token>` links fail because `qr_codes_resolve` is missing, run [`lib/db/migrations/002-public-qr-resolver.sql`](lib/db/migrations/002-public-qr-resolver.sql).
+5. If QR payments fail with `column reference "reference_id" is ambiguous`, run [`lib/db/migrations/003-fix-fn-transfer-reference-id.sql`](lib/db/migrations/003-fix-fn-transfer-reference-id.sql).
+6. If QR payments fail with `function gen_random_bytes(integer) does not exist`, run [`lib/db/migrations/004-fix-fn-transfer-gen-random-bytes.sql`](lib/db/migrations/004-fix-fn-transfer-gen-random-bytes.sql).
 
 ## Roles
 

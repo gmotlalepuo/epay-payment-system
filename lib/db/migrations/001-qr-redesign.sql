@@ -272,10 +272,10 @@ BEGIN
 
   -- Idempotency replay
   IF p_idempotency_key IS NOT NULL THEN
-    SELECT id, reference_id AS ref, status
+    SELECT t.id, t.reference_id AS ref, t.status
       INTO v_existing
-      FROM public.transactions
-     WHERE idempotency_key = p_idempotency_key;
+      FROM public.transactions t
+     WHERE t.idempotency_key = p_idempotency_key;
     IF FOUND THEN
       RETURN QUERY SELECT v_existing.id, v_existing.ref, v_existing.status;
       RETURN;
@@ -314,7 +314,7 @@ BEGIN
   END IF;
 
   v_reference_id := 'TXN' || to_char(now(),'YYYYMMDDHH24MISS')
-                          || upper(encode(gen_random_bytes(4),'hex'));
+                          || upper(encode(extensions.gen_random_bytes(4),'hex'));
 
   UPDATE public.wallets
      SET balance     = balance     - p_amount,

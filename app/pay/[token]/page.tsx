@@ -52,7 +52,9 @@ export default function PayLanding() {
   const [fromWalletId, setFromWalletId] = useState('')
 
   const [paying, setPaying] = useState(false)
+  const [cardPaying, setCardPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
+  const [cardPayError, setCardPayError] = useState<string | null>(null)
   const [receipt, setReceipt] = useState<{ reference_id: string } | null>(null)
 
   // Resolve the QR (public endpoint)
@@ -141,6 +143,33 @@ export default function PayLanding() {
     }
   }
 
+  async function handleCardCheckout() {
+    if (!qr) return
+    setCardPayError(null)
+    setCardPaying(true)
+    try {
+      const res = await fetch('/api/qr-codes/card-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qr_code_id: qr.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.url) {
+        const msg = data.error ?? 'Could not start card checkout'
+        setCardPayError(msg)
+        toast.error('Card checkout failed', { description: msg })
+        return
+      }
+      window.location.href = data.url
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Network error'
+      setCardPayError(msg)
+      toast.error('Card checkout failed', { description: msg })
+    } finally {
+      setCardPaying(false)
+    }
+  }
+
   if (resolving) {
     return <Frame><p className="text-gray-500">Loading payment details…</p></Frame>
   }
@@ -186,13 +215,30 @@ export default function PayLanding() {
               You're paying <span className="font-medium">{qr.receiver_name || 'a Digital Wallet user'}</span> ${qr.amount.toFixed(2)} for {qr.description}.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex gap-3">
-            <Button asChild className="flex-1">
-              <Link href={`/auth/login?next=${encodeURIComponent(next)}`}>Login</Link>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Button asChild>
+                <Link href={`/auth/login?next=${encodeURIComponent(next)}`}>Login</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/auth/signup?next=${encodeURIComponent(next)}`}>Sign up</Link>
+              </Button>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full"
+              onClick={handleCardCheckout}
+              disabled={cardPaying}
+            >
+              {cardPaying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {cardPaying ? 'Opening secure checkout...' : 'Pay with Visa/card'}
             </Button>
-            <Button asChild variant="outline" className="flex-1">
-              <Link href={`/auth/signup?next=${encodeURIComponent(next)}`}>Sign up</Link>
-            </Button>
+            {cardPayError && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {cardPayError}
+              </div>
+            )}
           </CardContent>
         </Card>
       </Frame>
@@ -301,6 +347,12 @@ export default function PayLanding() {
             </div>
           )}
 
+          {cardPayError && (
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {cardPayError}
+            </div>
+          )}
+
           <Button
             onClick={handlePay}
             disabled={!fromWalletId || paying || wallets.length === 0}
@@ -309,6 +361,20 @@ export default function PayLanding() {
           >
             {paying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {paying ? 'Processing…' : `Pay $${qr.amount.toFixed(2)}`}
+          </Button>
+
+          <div className="text-center text-xs text-gray-500">or</div>
+
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleCardCheckout}
+            disabled={cardPaying}
+            className="w-full"
+            size="lg"
+          >
+            {cardPaying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {cardPaying ? 'Opening secure checkout...' : 'Pay with Visa/card'}
           </Button>
         </CardContent>
       </Card>
