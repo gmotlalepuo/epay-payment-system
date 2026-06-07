@@ -26,6 +26,7 @@ Then apply the schema:
 1. Open Supabase Dashboard → SQL Editor.
 2. Run [`lib/db/schema.sql`](lib/db/schema.sql) once on a fresh project.
 3. Run [`lib/db/migrations/001-qr-redesign.sql`](lib/db/migrations/001-qr-redesign.sql) once.
+4. If `/pay/<token>` links fail because `qr_codes_resolve` is missing, run [`lib/db/migrations/002-public-qr-resolver.sql`](lib/db/migrations/002-public-qr-resolver.sql).
 
 ## Roles
 

@@ -18,6 +18,19 @@ export async function GET(
     const { data, error } = await supabase.rpc('qr_codes_resolve', { p_token: token })
 
     if (error) {
+      if (error.code === 'PGRST202') {
+        console.error(
+          'QR resolver function is missing. Run lib/db/migrations/002-public-qr-resolver.sql in Supabase.',
+        )
+        return NextResponse.json(
+          {
+            error:
+              'QR payment resolver is not installed. Run the latest database migration and try again.',
+          },
+          { status: 500 },
+        )
+      }
+
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
