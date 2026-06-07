@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import React, { FormEvent, useState } from 'react'
+import React, { Suspense, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -124,4 +124,10 @@ function LoginContent() {
   )
 }
 
-export default LoginContent
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
+  )
+}
