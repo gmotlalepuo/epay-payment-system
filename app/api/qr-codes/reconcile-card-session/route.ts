@@ -54,7 +54,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payment intent is not a guest QR payment' }, { status: 400 })
     }
 
-    const result = await applyGuestQrCardPayment(paymentIntent, supabase, stripe)
+    const result = await applyGuestQrCardPayment(paymentIntent, supabase, stripe, {
+      name: session.customer_details?.name ?? null,
+      email: session.customer_details?.email ?? null,
+    })
     return NextResponse.json(result)
   } catch (error: any) {
     console.error('[guest-qr-reconcile] Reconcile error:', error)

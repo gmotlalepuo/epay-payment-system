@@ -2,6 +2,11 @@ import { createNotification, notifyAdmins } from '@/lib/notifications'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type Stripe from 'stripe'
 
+export type GuestQrPayerDetails = {
+  name?: string | null
+  email?: string | null
+}
+
 type GuestQrApplyResult =
   | {
       credited: true
@@ -11,6 +16,8 @@ type GuestQrApplyResult =
       transaction_id: string
       receiver_wallet_id: string
       description: string
+      payer_name?: string | null
+      payer_email?: string | null
     }
   | {
       credited: false
@@ -18,6 +25,39 @@ type GuestQrApplyResult =
       reference_id?: string
       reason?: string
     }
+
+async function ensureGuestQrReceiverNotification(
+  supabase: SupabaseClient,
+  payload: {
+    transactionId: string
+    receiverUserId: string
+    amount: number
+    currency: string
+    payerName?: string | null
+  },
+) {
+  const { data: existingNotification } = await supabase
+    .from('notifications')
+    .select('id')
+    .eq('user_id', payload.receiverUserId)
+    .eq('reference_id', payload.transactionId)
+    .eq('title', 'Card payment received')
+    .maybeSingle()
+
+  if (existingNotification) return
+
+  const payerLabel = payload.payerName?.trim() || 'a guest card payment'
+
+  await createNotification(supabase, {
+    user_id: payload.receiverUserId,
+    type: 'transaction',
+    category: 'payment',
+    title: 'Card payment received',
+    message: `You received ${payload.amount.toFixed(2)} ${payload.currency} from ${payerLabel}.`,
+    link_url: '/dashboard/transactions',
+    reference_id: payload.transactionId,
+  })
+}
 
 async function refundGuestQrPayment(
   stripe: Stripe,
@@ -41,6 +81,7 @@ export async function applyGuestQrCardPayment(
   paymentIntent: Stripe.PaymentIntent,
   supabase: SupabaseClient,
   stripe: Stripe,
+  payerDetails: GuestQrPayerDetails = {},
 ): Promise<GuestQrApplyResult> {
   const qrCodeId = paymentIntent.metadata.qr_code_id
   const receiverWalletId = paymentIntent.metadata.receiver_wallet_id
@@ -55,11 +96,29 @@ export async function applyGuestQrCardPayment(
 
   const { data: existing } = await supabase
     .from('transactions')
-    .select('id, reference_id')
+    .select('id, reference_id, amount, currency, guest_payer_name, guest_payer_email')
     .eq('stripe_payment_intent_id', paymentIntent.id)
     .maybeSingle()
 
   if (existing) {
+    if ((payerDetails.name || payerDetails.email) && (!existing.guest_payer_name || !existing.guest_payer_email)) {
+      await supabase
+        .from('transactions')
+        .update({
+          guest_payer_name: existing.guest_payer_name ?? payerDetails.name ?? null,
+          guest_payer_email: existing.guest_payer_email ?? payerDetails.email ?? null,
+        })
+        .eq('id', existing.id)
+    }
+
+    await ensureGuestQrReceiverNotification(supabase, {
+      transactionId: existing.id,
+      receiverUserId,
+      amount: Number(existing.amount ?? amount),
+      currency: existing.currency ?? paymentIntent.currency.toUpperCase(),
+      payerName: existing.guest_payer_name ?? payerDetails.name,
+    })
+
     return {
       credited: false,
       already_credited: true,
@@ -117,6 +176,8 @@ export async function applyGuestQrCardPayment(
       reference_id: referenceId,
       description,
       qr_code_id: qrCodeId,
+      guest_payer_name: payerDetails.name ?? null,
+      guest_payer_email: payerDetails.email ?? null,
       completed_at: completedAt,
     })
     .select('id, reference_id')
@@ -126,9 +187,29 @@ export async function applyGuestQrCardPayment(
     if (transactionError?.code === '23505') {
       const { data: alreadyCredited } = await supabase
         .from('transactions')
-        .select('id, reference_id')
+        .select('id, reference_id, amount, currency, guest_payer_name, guest_payer_email')
         .eq('stripe_payment_intent_id', paymentIntent.id)
         .maybeSingle()
+
+      if (alreadyCredited?.id) {
+        if ((payerDetails.name || payerDetails.email) && (!alreadyCredited.guest_payer_name || !alreadyCredited.guest_payer_email)) {
+          await supabase
+            .from('transactions')
+            .update({
+              guest_payer_name: alreadyCredited.guest_payer_name ?? payerDetails.name ?? null,
+              guest_payer_email: alreadyCredited.guest_payer_email ?? payerDetails.email ?? null,
+            })
+            .eq('id', alreadyCredited.id)
+        }
+
+        await ensureGuestQrReceiverNotification(supabase, {
+          transactionId: alreadyCredited.id,
+          receiverUserId,
+          amount: Number(alreadyCredited.amount ?? amount),
+          currency: alreadyCredited.currency ?? currency,
+          payerName: alreadyCredited.guest_payer_name ?? payerDetails.name,
+        })
+      }
 
       return {
         credited: false,
@@ -164,14 +245,12 @@ export async function applyGuestQrCardPayment(
     })
     .eq('id', qrCodeId)
 
-  await createNotification(supabase, {
-    user_id: receiverUserId,
-    type: 'transaction',
-    category: 'payment',
-    title: 'Card payment received',
-    message: `You received ${amount.toFixed(2)} ${currency} via QR card payment.`,
-    link_url: '/dashboard/transactions',
-    reference_id: transaction.id,
+  await ensureGuestQrReceiverNotification(supabase, {
+    transactionId: transaction.id,
+    receiverUserId,
+    amount,
+    currency,
+    payerName: payerDetails.name,
   })
 
   await notifyAdmins(supabase, {
@@ -194,6 +273,8 @@ export async function applyGuestQrCardPayment(
       qr_code_id: qrCodeId,
       stripe_payment_intent_id: paymentIntent.id,
       reference_id: transaction.reference_id,
+      payer_name: payerDetails.name ?? null,
+      payer_email: payerDetails.email ?? null,
     },
   })
 
@@ -205,5 +286,7 @@ export async function applyGuestQrCardPayment(
     transaction_id: transaction.id,
     receiver_wallet_id: receiverWalletId,
     description,
+    payer_name: payerDetails.name ?? null,
+    payer_email: payerDetails.email ?? null,
   }
 }

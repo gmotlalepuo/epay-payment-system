@@ -72,6 +72,10 @@ export default function TransactionsPage() {
           transaction.description,
           transaction.reference_id,
           transaction.currency,
+          transaction.source_label,
+          transaction.sender_label,
+          transaction.receiver_label,
+          transaction.counterparty_label,
           String(transaction.amount),
         ]
           .filter(Boolean)
@@ -189,6 +193,18 @@ export default function TransactionsPage() {
               const sign = dir === 'out' ? '-' : dir === 'in' ? '+' : ''
               const amountColor =
                 dir === 'out' ? 'text-red-600' : dir === 'in' ? 'text-green-600' : ''
+              const isGuestCard = Boolean(transaction.stripe_payment_intent_id && !transaction.from_wallet_id)
+              const counterpartyLabel =
+                dir === 'out'
+                  ? transaction.receiver_label || 'Receiver details unavailable'
+                  : transaction.sender_label ||
+                    (isGuestCard
+                      ? 'Guest card payer'
+                      : transaction.type === 'topup'
+                        ? 'Card top-up'
+                        : 'Sender details unavailable')
+              const counterpartyPrefix =
+                dir === 'out' ? 'Sent to:' : transaction.type === 'topup' ? 'Added from:' : 'From:'
 
               return (
                 <Card
@@ -204,6 +220,16 @@ export default function TransactionsPage() {
                       <p className="text-sm text-gray-600 truncate">
                         {transaction.description || `${transaction.type} transaction`}
                       </p>
+                      <div className="mt-2 grid gap-1 text-xs text-gray-500 sm:grid-cols-2">
+                        <p className="truncate">
+                          <span className="font-medium text-gray-700">Source:</span>{' '}
+                          {transaction.source_label || transaction.type}
+                        </p>
+                        <p className="truncate">
+                          <span className="font-medium text-gray-700">{counterpartyPrefix}</span>{' '}
+                          {counterpartyLabel}
+                        </p>
+                      </div>
                       <p className="text-xs text-gray-500 mt-1">
                         {formatTimestamp(transaction.completed_at ?? transaction.created_at)}
                         {transaction.reference_id && ` · ${transaction.reference_id}`}

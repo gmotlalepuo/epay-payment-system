@@ -8,6 +8,23 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 
+async function getGuestQrPayerDetails(paymentIntentId: string) {
+  try {
+    const sessions = await stripe.checkout.sessions.list({
+      payment_intent: paymentIntentId,
+      limit: 1,
+    })
+    const session = sessions.data[0]
+    return {
+      name: session?.customer_details?.name ?? null,
+      email: session?.customer_details?.email ?? null,
+    }
+  } catch (error) {
+    console.error('[stripe-webhook] Failed to load guest QR checkout session:', error)
+    return {}
+  }
+}
+
 async function handlePaymentIntentSucceeded(
   paymentIntent: Stripe.PaymentIntent,
   supabase: any
@@ -180,7 +197,12 @@ export async function POST(request: NextRequest) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent
         if (paymentIntent.metadata.source === 'guest_qr_payment') {
-          await applyGuestQrCardPayment(paymentIntent, supabase, stripe)
+          await applyGuestQrCardPayment(
+            paymentIntent,
+            supabase,
+            stripe,
+            await getGuestQrPayerDetails(paymentIntent.id),
+          )
         } else {
           await handlePaymentIntentSucceeded(paymentIntent, supabase)
         }

@@ -3,6 +3,60 @@ import { getCurrentUser } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { createNotification, createServiceRoleClient, notifyAdmins } from '@/lib/notifications'
 
+type CounterpartySnapshot = {
+  displayName: string | null
+  walletNumber: string | null
+}
+
+function formatOwnerName(user: any) {
+  if (!user) return null
+  return [user.first_name, user.last_name].filter(Boolean).join(' ').trim() || user.email || null
+}
+
+function formatWalletLabel(snapshot: CounterpartySnapshot | null) {
+  if (!snapshot) return null
+  if (snapshot.displayName && snapshot.walletNumber) {
+    return `${snapshot.displayName} (${snapshot.walletNumber})`
+  }
+  return snapshot.displayName ?? snapshot.walletNumber
+}
+
+async function loadCounterpartySnapshots(
+  client: any,
+  walletIds: string[],
+): Promise<Map<string, CounterpartySnapshot>> {
+  const uniqueWalletIds = Array.from(new Set(walletIds.filter(Boolean)))
+  if (uniqueWalletIds.length === 0) return new Map<string, CounterpartySnapshot>()
+
+  const { data: wallets } = await client
+    .from('wallets')
+    .select('id, user_id, wallet_number, name')
+    .in('id', uniqueWalletIds)
+
+  const userIds = Array.from(new Set((wallets ?? []).map((w: any) => w.user_id).filter(Boolean)))
+  const { data: users } =
+    userIds.length > 0
+      ? await client
+          .from('users')
+          .select('id, first_name, last_name, email')
+          .in('id', userIds)
+      : { data: [] }
+
+  const userById = new Map((users ?? []).map((u: any) => [u.id, u]))
+  return new Map<string, CounterpartySnapshot>(
+    (wallets ?? []).map((wallet: any) => {
+      const ownerName = formatOwnerName(userById.get(wallet.user_id))
+      return [
+        wallet.id,
+        {
+          displayName: ownerName,
+          walletNumber: wallet.name || wallet.wallet_number,
+        },
+      ]
+    }),
+  )
+}
+
 /**
  * POST /api/transfers
  *
@@ -106,6 +160,20 @@ export async function POST(request: NextRequest) {
     // Notifications for both parties (best-effort; doesn't fail the transfer)
     const serviceClient = createServiceRoleClient()
     const notificationClient = serviceClient ?? supabase
+    const snapshotClient = serviceClient ?? supabase
+    const snapshots = await loadCounterpartySnapshots(snapshotClient, [fromWalletId, toWalletId])
+    const senderSnapshot = snapshots.get(fromWalletId) ?? null
+    const receiverSnapshot = snapshots.get(toWalletId) ?? null
+
+    await snapshotClient
+      .from('transactions')
+      .update({
+        sender_display_name: senderSnapshot?.displayName ?? null,
+        sender_wallet_number: senderSnapshot?.walletNumber ?? null,
+        receiver_display_name: receiverSnapshot?.displayName ?? null,
+        receiver_wallet_number: receiverSnapshot?.walletNumber ?? null,
+      })
+      .eq('id', txn.transaction_id)
 
     const { data: counterparty, error: counterpartyError } = await (serviceClient ?? supabase)
       .from('wallets')
@@ -241,7 +309,59 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ transactions })
+    const serviceClient = createServiceRoleClient()
+    const lookupClient = serviceClient ?? supabase
+    const walletLookupIds = Array.from(
+      new Set(
+        (transactions ?? [])
+          .flatMap((t) => [t.from_wallet_id, t.to_wallet_id])
+          .filter(Boolean),
+      ),
+    )
+    const liveSnapshots = await loadCounterpartySnapshots(lookupClient, walletLookupIds)
+
+    const nameForWallet = (walletId: string | null) => {
+      if (!walletId) return null
+      return formatWalletLabel(liveSnapshots.get(walletId) ?? null)
+    }
+
+    const enrichedTransactions = (transactions ?? []).map((transaction) => {
+      const isGuestCard = transaction.stripe_payment_intent_id && !transaction.from_wallet_id
+      const guestPayerLabel = transaction.guest_payer_name || transaction.guest_payer_email
+      const senderSnapshotLabel = formatWalletLabel({
+        displayName: transaction.sender_display_name,
+        walletNumber: transaction.sender_wallet_number,
+      })
+      const receiverSnapshotLabel = formatWalletLabel({
+        displayName: transaction.receiver_display_name,
+        walletNumber: transaction.receiver_wallet_number,
+      })
+      const senderLabel = isGuestCard
+        ? guestPayerLabel || 'Guest card payer'
+        : senderSnapshotLabel || nameForWallet(transaction.from_wallet_id)
+      const receiverLabel = receiverSnapshotLabel || nameForWallet(transaction.to_wallet_id)
+      const sourceLabel = isGuestCard
+        ? 'Guest card via Stripe'
+        : transaction.type === 'topup'
+          ? 'Card top-up via Stripe'
+          : transaction.qr_code_id
+            ? 'Wallet QR payment'
+            : transaction.type === 'transfer'
+              ? 'Wallet transfer'
+              : transaction.type
+
+      return {
+        ...transaction,
+        source_label: sourceLabel,
+        sender_label: senderLabel,
+        receiver_label: receiverLabel,
+        counterparty_label: transaction.from_wallet_id && ids.includes(transaction.from_wallet_id)
+          ? receiverLabel
+          : senderLabel,
+      }
+    })
+
+    return NextResponse.json({ transactions: enrichedTransactions })
   } catch (error) {
     console.error('Error fetching transfers:', error)
     return NextResponse.json({ error: 'Failed to fetch transfers' }, { status: 500 })
