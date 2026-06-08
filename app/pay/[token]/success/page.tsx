@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
+import { PaymentReceipt } from '@/components/payment-receipt'
 
 interface ResolvedQr {
   description: string
@@ -55,22 +56,14 @@ export default function GuestQrPaymentSuccessPage() {
               <Loader2 className="h-4 w-4 animate-spin" /> Loading receipt...
             </p>
           ) : qr ? (
-            <div className="rounded-md bg-gray-50 p-4 space-y-2">
-              <p>
-                <span className="text-gray-500">Paid: </span>
-                <span className="font-medium">
-                  {Number(qr.amount).toFixed(2)} {qr.currency}
-                </span>
-              </p>
-              <p>
-                <span className="text-gray-500">To: </span>
-                {qr.receiver_name || 'Receiver'}
-              </p>
-              <p>
-                <span className="text-gray-500">For: </span>
-                {qr.description}
-              </p>
-            </div>
+            <PaymentReceipt
+              reference={sessionId ?? `CARD-${params.token}`}
+              amount={Number(qr.amount)}
+              currency={qr.currency}
+              receiver={qr.receiver_name || 'Receiver'}
+              description={qr.description}
+              method="Visa/card"
+            />
           ) : (
             <p className="text-gray-600">Your payment was accepted.</p>
           )}

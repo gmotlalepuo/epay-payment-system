@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { PaymentReceipt } from '@/components/payment-receipt'
 
 interface ResolvedQr {
   id: string
@@ -55,7 +56,7 @@ export default function PayLanding() {
   const [cardPaying, setCardPaying] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
   const [cardPayError, setCardPayError] = useState<string | null>(null)
-  const [receipt, setReceipt] = useState<{ reference_id: string } | null>(null)
+  const [receipt, setReceipt] = useState<{ reference_id: string; paid_at: string } | null>(null)
 
   // Resolve the QR (public endpoint)
   useEffect(() => {
@@ -133,7 +134,7 @@ export default function PayLanding() {
       toast.success('Payment sent', {
         description: `$${qr.amount.toFixed(2)} to ${qr.receiver_name || 'recipient'}`,
       })
-      setReceipt({ reference_id: data.reference_id })
+      setReceipt({ reference_id: data.reference_id, paid_at: new Date().toISOString() })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Network error'
       setPayError(msg)
@@ -273,19 +274,16 @@ export default function PayLanding() {
             <CardTitle>Payment successful</CardTitle>
             <CardDescription>Reference: {receipt.reference_id}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p>
-              <span className="text-gray-500">Paid: </span>
-              <span className="font-medium">${qr.amount.toFixed(2)}</span>
-            </p>
-            <p>
-              <span className="text-gray-500">To: </span>
-              {qr.receiver_name || 'Receiver'}
-            </p>
-            <p>
-              <span className="text-gray-500">For: </span>
-              {qr.description}
-            </p>
+          <CardContent className="space-y-4 text-sm">
+            <PaymentReceipt
+              reference={receipt.reference_id}
+              amount={qr.amount}
+              currency={qr.currency}
+              receiver={qr.receiver_name || 'Receiver'}
+              description={qr.description}
+              paidAt={receipt.paid_at}
+              method="Wallet"
+            />
             <div className="pt-3">
               <Button asChild variant="outline">
                 <Link href="/dashboard">Back to dashboard</Link>

@@ -3,6 +3,13 @@ import { createServiceRoleClient } from '@/lib/notifications'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
+const APPROX_MIN_CARD_AMOUNT_BY_CURRENCY: Record<string, number> = {
+  usd: 0.5,
+  bwp: 8,
+  zar: 10,
+  eur: 0.5,
+  gbp: 0.3,
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,11 +61,20 @@ export async function POST(request: NextRequest) {
     }
 
     const origin = process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin
-    const currency = String(qr.currency ?? wallet.currency ?? 'usd').toLowerCase()
+    const currency = String(qr.currency || wallet.currency || 'usd').toLowerCase()
+    const minimumAmount = APPROX_MIN_CARD_AMOUNT_BY_CURRENCY[currency] ?? 1
+
+    if (amount < minimumAmount) {
+      return NextResponse.json(
+        {
+          error: `Card payments must be at least ${minimumAmount.toFixed(2)} ${currency.toUpperCase()}. Use wallet payment for smaller amounts.`,
+        },
+        { status: 400 },
+      )
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      payment_method_types: ['card'],
       line_items: [
         {
           price_data: {
@@ -94,8 +110,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: session.url })
   } catch (error: any) {
     console.error('[guest-qr-checkout] Failed to create checkout session:', error)
+    const message =
+      error?.type === 'StripeInvalidRequestError'
+        ? `Stripe checkout error: ${error.message}`
+        : error?.message ?? 'Failed to create card checkout'
+
     return NextResponse.json(
-      { error: error?.message ?? 'Failed to create card checkout' },
+      { error: message },
       { status: 500 },
     )
   }
