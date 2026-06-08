@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -15,11 +15,26 @@ interface ResolvedQr {
   receiver_name: string
 }
 
+interface ReconcileResult {
+  credited: boolean
+  already_credited?: boolean
+  amount?: number
+  currency?: string
+  reference_id?: string
+  description?: string
+  reason?: string
+  error?: string
+}
+
 export default function GuestQrPaymentSuccessPage() {
   const params = useParams<{ token: string }>()
   const searchParams = useSearchParams()
   const [qr, setQr] = useState<ResolvedQr | null>(null)
   const [loading, setLoading] = useState(true)
+  const [reconcileState, setReconcileState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [reconcileResult, setReconcileResult] = useState<ReconcileResult | null>(null)
+  const [reconcileError, setReconcileError] = useState<string | null>(null)
+  const ranReconcileRef = useRef(false)
 
   useEffect(() => {
     let alive = true
@@ -41,31 +56,81 @@ export default function GuestQrPaymentSuccessPage() {
 
   const sessionId = searchParams.get('session_id')
 
+  useEffect(() => {
+    if (!sessionId || ranReconcileRef.current) return
+    ranReconcileRef.current = true
+    setReconcileState('loading')
+
+    async function reconcile() {
+      try {
+        const res = await fetch('/api/qr-codes/reconcile-card-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId }),
+        })
+        const data = (await res.json()) as ReconcileResult
+        if (!res.ok) {
+          setReconcileError(data.error ?? `HTTP ${res.status}`)
+          setReconcileState('error')
+          return
+        }
+        setReconcileResult(data)
+        setReconcileState('done')
+      } catch (err) {
+        setReconcileError(err instanceof Error ? err.message : 'Network error')
+        setReconcileState('error')
+      }
+    }
+
+    void reconcile()
+  }, [sessionId])
+
+  const receiptAmount = reconcileResult?.amount ?? Number(qr?.amount ?? 0)
+  const receiptCurrency = reconcileResult?.currency ?? qr?.currency ?? 'USD'
+  const receiptDescription = qr?.description ?? reconcileResult?.description ?? 'Guest card QR payment'
+  const receiptReference = reconcileResult?.reference_id ?? sessionId ?? `CARD-${params.token}`
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Card payment successful</CardTitle>
+          <CardTitle>
+            {reconcileState === 'loading' ? 'Crediting receiver...' : 'Card payment successful'}
+          </CardTitle>
           <CardDescription>
-            Your card payment was accepted. The receiver will be credited automatically.
+            {reconcileState === 'error'
+              ? 'Your card was accepted, but the wallet credit could not be verified automatically.'
+              : reconcileResult?.already_credited
+                ? 'This payment was already applied to the receiver wallet.'
+                : reconcileResult?.credited
+                  ? 'The receiver wallet has been credited.'
+                  : 'Your card payment was accepted. The receiver will be credited automatically.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
-          {loading ? (
+          {loading || reconcileState === 'loading' ? (
             <p className="flex items-center gap-2 text-gray-500">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading receipt...
+              <Loader2 className="h-4 w-4 animate-spin" /> Confirming receipt...
             </p>
-          ) : qr ? (
+          ) : qr || reconcileResult?.amount ? (
             <PaymentReceipt
-              reference={sessionId ?? `CARD-${params.token}`}
-              amount={Number(qr.amount)}
-              currency={qr.currency}
-              receiver={qr.receiver_name || 'Receiver'}
-              description={qr.description}
+              reference={receiptReference}
+              amount={receiptAmount}
+              currency={receiptCurrency}
+              receiver={qr?.receiver_name || 'Receiver'}
+              description={receiptDescription}
               method="Visa/card"
             />
           ) : (
             <p className="text-gray-600">Your payment was accepted.</p>
+          )}
+
+          {reconcileState === 'done' && reconcileResult?.reason && (
+            <p className="text-xs text-amber-700">{reconcileResult.reason}</p>
+          )}
+
+          {reconcileState === 'error' && (
+            <p className="text-xs text-red-600">{reconcileError ?? 'Could not verify wallet credit.'}</p>
           )}
 
           {sessionId && (

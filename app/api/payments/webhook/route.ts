@@ -1,156 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createNotification, createServiceRoleClient, notifyAdmins } from '@/lib/notifications'
+import { applyGuestQrCardPayment } from '@/lib/guest-qr-card-payments'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
-
-async function refundGuestQrPayment(paymentIntent: Stripe.PaymentIntent, reason: string) {
-  try {
-    await stripe.refunds.create({
-      payment_intent: paymentIntent.id,
-      metadata: {
-        reason,
-        source: 'guest_qr_payment',
-      },
-    })
-  } catch (error) {
-    console.error('[stripe-webhook] Failed to refund guest QR payment:', error)
-  }
-}
-
-async function handleGuestQrPaymentSucceeded(
-  paymentIntent: Stripe.PaymentIntent,
-  supabase: any,
-) {
-  const qrCodeId = paymentIntent.metadata.qr_code_id
-  const receiverWalletId = paymentIntent.metadata.receiver_wallet_id
-  const receiverUserId = paymentIntent.metadata.receiver_user_id
-  const amount = paymentIntent.amount_received > 0
-    ? paymentIntent.amount_received / 100
-    : paymentIntent.amount / 100
-
-  if (!qrCodeId || !receiverWalletId || !receiverUserId) {
-    console.error('[stripe-webhook] Guest QR metadata missing:', paymentIntent.id)
-    return
-  }
-
-  const { data: existing } = await supabase
-    .from('transactions')
-    .select('id')
-    .eq('stripe_payment_intent_id', paymentIntent.id)
-    .maybeSingle()
-  if (existing) return
-
-  const { data: qr, error: qrError } = await supabase
-    .from('qr_codes')
-    .select('id, wallet_id, amount, currency, description, is_active, single_use, paid_count, expiry_at')
-    .eq('id', qrCodeId)
-    .single()
-
-  if (qrError || !qr || qr.wallet_id !== receiverWalletId) {
-    console.error('[stripe-webhook] Guest QR not found or mismatched:', paymentIntent.id, qrError)
-    await refundGuestQrPayment(paymentIntent, 'qr_not_found_or_mismatched')
-    return
-  }
-
-  const expired = qr.expiry_at && new Date(qr.expiry_at) <= new Date()
-  const exhausted = qr.single_use && qr.paid_count > 0
-  if (!qr.is_active || expired || exhausted) {
-    console.error('[stripe-webhook] Guest QR is no longer payable:', paymentIntent.id)
-    await refundGuestQrPayment(paymentIntent, 'qr_not_payable')
-    return
-  }
-
-  const { data: wallet, error: walletError } = await supabase
-    .from('wallets')
-    .select('balance, currency, status')
-    .eq('id', receiverWalletId)
-    .single()
-
-  if (walletError || !wallet || wallet.status !== 'active') {
-    console.error('[stripe-webhook] Receiver wallet unavailable for guest QR:', receiverWalletId)
-    await refundGuestQrPayment(paymentIntent, 'receiver_wallet_unavailable')
-    return
-  }
-
-  const completedAt = new Date().toISOString()
-
-  await supabase
-    .from('wallets')
-    .update({
-      balance: parseFloat(wallet.balance) + amount,
-      updated_at: completedAt,
-    })
-    .eq('id', receiverWalletId)
-
-  const { data: transaction, error: transactionError } = await supabase
-    .from('transactions')
-    .insert({
-      from_wallet_id: null,
-      to_wallet_id: receiverWalletId,
-      type: 'payment',
-      amount,
-      currency: wallet.currency ?? qr.currency ?? paymentIntent.currency.toUpperCase(),
-      status: 'completed',
-      stripe_payment_intent_id: paymentIntent.id,
-      reference_id: `CARDQR-${paymentIntent.id}`,
-      description: qr.description ? `Card payment: ${qr.description}` : 'Guest card QR payment',
-      qr_code_id: qrCodeId,
-      completed_at: completedAt,
-    })
-    .select('id, reference_id')
-    .single()
-
-  if (transactionError || !transaction) {
-    console.error('[stripe-webhook] Failed to record guest QR transaction:', transactionError)
-    return
-  }
-
-  await supabase
-    .from('qr_codes')
-    .update({
-      paid_count: Number(qr.paid_count ?? 0) + 1,
-      is_active: qr.single_use ? false : qr.is_active,
-      updated_at: completedAt,
-    })
-    .eq('id', qrCodeId)
-
-  await createNotification(supabase, {
-    user_id: receiverUserId,
-    type: 'transaction',
-    category: 'payment',
-    title: 'Card payment received',
-    message: `You received ${amount.toFixed(2)} ${wallet.currency ?? qr.currency ?? paymentIntent.currency.toUpperCase()} via QR card payment.`,
-    link_url: '/dashboard/transactions',
-    reference_id: transaction.id,
-  })
-
-  await notifyAdmins(supabase, {
-    type: 'transaction',
-    category: 'payment',
-    title: 'Guest QR card payment completed',
-    message: `Guest paid ${amount.toFixed(2)} ${wallet.currency ?? qr.currency ?? paymentIntent.currency.toUpperCase()} via QR code.`,
-    link_url: '/admin',
-    reference_id: transaction.id,
-  })
-
-  await supabase.from('audit_logs').insert({
-    user_id: receiverUserId,
-    action: 'guest_qr_card_payment_received',
-    resource_type: 'transaction',
-    resource_id: transaction.id,
-    status: 'success',
-    details: {
-      amount,
-      qr_code_id: qrCodeId,
-      stripe_payment_intent_id: paymentIntent.id,
-      reference_id: transaction.reference_id,
-    },
-  })
-}
 
 async function handlePaymentIntentSucceeded(
   paymentIntent: Stripe.PaymentIntent,
@@ -324,7 +180,7 @@ export async function POST(request: NextRequest) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent
         if (paymentIntent.metadata.source === 'guest_qr_payment') {
-          await handleGuestQrPaymentSucceeded(paymentIntent, supabase)
+          await applyGuestQrCardPayment(paymentIntent, supabase, stripe)
         } else {
           await handlePaymentIntentSucceeded(paymentIntent, supabase)
         }
