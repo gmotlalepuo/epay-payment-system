@@ -1,16 +1,14 @@
-import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthenticatedContext } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 
 // GET /api/notifications - Get user's notifications
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const supabase = await createClient()
+    const { supabase, user } = auth
 
     const unreadOnly = request.nextUrl.searchParams.get('unread') === 'true'
 
@@ -42,10 +40,11 @@ export async function GET(request: NextRequest) {
 // PATCH /api/notifications - Mark notifications as read
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { supabase, user } = auth
 
     const { notificationIds, isRead = true } = await request.json()
 
@@ -55,8 +54,6 @@ export async function PATCH(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    const supabase = await createClient()
 
     const { data: notifications, error } = await supabase
       .from('notifications')
@@ -98,10 +95,11 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/notifications - Delete a notification
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { supabase, user } = auth
 
     const { notificationId } = await request.json()
 
@@ -111,8 +109,6 @@ export async function DELETE(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    const supabase = await createClient()
 
     const { error } = await supabase
       .from('notifications')

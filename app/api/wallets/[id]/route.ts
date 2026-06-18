@@ -1,5 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthenticatedContext } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 
 // GET /api/wallets/[id] — wallet detail + its QR codes + its recent transactions
@@ -8,13 +7,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(_request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { supabase, user } = auth
 
     const { id } = await params
-    const supabase = await createClient()
 
     const { data: wallet, error: walletErr } = await supabase
       .from('wallets')
@@ -60,17 +59,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { supabase, user } = auth
 
     const { id } = await params
     const body = await request.json()
     const raw = typeof body.name === 'string' ? body.name.trim() : ''
     const name = raw.length > 0 ? raw.slice(0, 60) : null
-
-    const supabase = await createClient()
 
     // RLS already restricts updates to wallets the user owns
     const { data, error } = await supabase

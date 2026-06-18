@@ -1,5 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthenticatedContext } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import QRCode from 'qrcode'
 import { randomBytes } from 'crypto'
@@ -12,10 +11,11 @@ function generateToken(): string {
 // POST /api/qr-codes — create a payment QR for a wallet the caller owns
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { supabase, user } = auth
 
     const body = await request.json()
     const description = (body.description ?? '').toString().trim()
@@ -30,8 +30,6 @@ export async function POST(request: NextRequest) {
     if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json({ error: 'Amount must be greater than zero' }, { status: 400 })
     }
-
-    const supabase = await createClient()
 
     // Resolve wallet: explicit wallet_id, or default to user's first active wallet
     let wallet
@@ -115,14 +113,13 @@ export async function POST(request: NextRequest) {
 }
 
 // GET /api/qr-codes — list QR codes for caller's wallets
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const supabase = await createClient()
+    const { supabase, user } = auth
 
     const { data: wallets } = await supabase
       .from('wallets')

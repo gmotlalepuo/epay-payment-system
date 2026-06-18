@@ -1,15 +1,15 @@
-import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthenticatedContext } from '@/lib/auth'
 import { createNotification, notifyAdmins } from '@/lib/notifications'
 import { NextRequest, NextResponse } from 'next/server'
 
 // POST /api/complaints - Create a new complaint
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { supabase, user } = auth
 
     const { complaintType, title, description, transactionId, attachmentUrls } = await request.json()
 
@@ -37,8 +37,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    const supabase = await createClient()
 
     // Create complaint
     const { data: complaint, error: complaintError } = await supabase
@@ -106,12 +104,11 @@ export async function POST(request: NextRequest) {
 // GET /api/complaints - Get user's complaints
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const supabase = await createClient()
+    const { supabase, user } = auth
 
     const { data: complaints, error } = await supabase
       .from('complaints')

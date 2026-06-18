@@ -1,21 +1,92 @@
 import { createClient } from '@/lib/supabase/server'
-import { cookies } from 'next/headers'
+import {
+  createClient as createSupabaseClient,
+  type SupabaseClient,
+  type User,
+} from '@supabase/supabase-js'
 
-export async function getCurrentUser() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  return user
+export type AuthContext = {
+  supabase: SupabaseClient
+  user: User
 }
 
-export async function getUserRole() {
+function getBearerToken(request?: Request) {
+  const authorization = request?.headers.get('authorization')
+  if (!authorization) return null
+
+  const [scheme, token] = authorization.split(' ')
+  if (scheme?.toLowerCase() !== 'bearer' || !token) return null
+
+  return token.trim()
+}
+
+function createJwtScopedClient(token: string) {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    },
+  )
+}
+
+export async function getAuthenticatedContext(request?: Request): Promise<AuthContext | null> {
+  const bearerToken = getBearerToken(request)
+
+  if (bearerToken) {
+    const verifier = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      },
+    )
+
+    const {
+      data: { user },
+      error,
+    } = await verifier.auth.getUser(bearerToken)
+
+    if (error || !user) return null
+
+    return {
+      supabase: createJwtScopedClient(bearerToken),
+      user,
+    }
+  }
+
   const supabase = await createClient()
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser()
 
-  if (!user) return null
+  if (error || !user) return null
+
+  return { supabase, user }
+}
+
+export async function getCurrentUser(request?: Request) {
+  const auth = await getAuthenticatedContext(request)
+  return auth?.user ?? null
+}
+
+export async function getUserRole(request?: Request) {
+  const auth = await getAuthenticatedContext(request)
+  if (!auth) return null
+
+  const { supabase, user } = auth
 
   const { data, error } = await supabase
     .from('users')
@@ -38,13 +109,13 @@ export async function isAdmin() {
 
 export function requireAuth(requiredRole?: string) {
   return async (request: Request) => {
-    const user = await getCurrentUser()
+    const user = await getCurrentUser(request)
     if (!user) {
       return new Response('Unauthorized', { status: 401 })
     }
 
     if (requiredRole) {
-      const role = await getUserRole()
+      const role = await getUserRole(request)
       if (role !== requiredRole && role !== 'super_admin') {
         return new Response('Forbidden', { status: 403 })
       }

@@ -1,17 +1,14 @@
-import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthenticatedContext } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
-import { randomUUID } from 'crypto'
 
 // GET /api/wallets - Fetch user's wallets
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const supabase = await createClient()
+    const { supabase, user } = auth
 
     // Ensure public.users row exists (backfill if the DB trigger isn't present)
     const { data: existingUser, error: readErr } = await supabase
@@ -69,17 +66,16 @@ export async function GET(request: NextRequest) {
 // POST /api/wallets - Create a new wallet
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { supabase, user } = auth
 
     const body = await request.json()
     const currency = body.currency ?? 'USD'
     const rawName = typeof body.name === 'string' ? body.name.trim() : ''
     const name = rawName.length > 0 ? rawName.slice(0, 60) : null
-
-    const supabase = await createClient()
 
     // Generate unique wallet number
     const walletNumber = `W${Date.now()}${Math.random().toString(36).substr(2, 9).toUpperCase()}`

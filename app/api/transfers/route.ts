@@ -1,5 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthenticatedContext } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { createNotification, createServiceRoleClient, notifyAdmins } from '@/lib/notifications'
 
@@ -69,10 +68,11 @@ async function loadCounterpartySnapshots(
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { supabase, user } = auth
 
     const body = await request.json()
     const fromWalletId: string | undefined = body.from_wallet_id ?? body.fromWalletId
@@ -89,8 +89,6 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
-
-    const supabase = await createClient()
 
     let toWalletId: string
     let amount: number
@@ -279,14 +277,13 @@ export async function POST(request: NextRequest) {
 }
 
 // GET /api/transfers — full history (sent and received) for caller's wallets
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const supabase = await createClient()
+    const { supabase, user } = auth
 
     const { data: wallets } = await supabase
       .from('wallets')

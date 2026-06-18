@@ -1,5 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthenticatedContext } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 
 // PATCH /api/qr-codes/[id] — update is_active (deactivate / reactivate)
@@ -8,16 +7,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const { supabase, user } = auth
 
     const { id } = await params
     const body = await request.json()
     const isActive = Boolean(body.is_active)
-
-    const supabase = await createClient()
 
     // RLS already restricts updates to wallets the user owns
     const { data, error } = await supabase
