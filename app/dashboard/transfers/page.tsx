@@ -58,7 +58,7 @@ export default function TransfersPage() {
       if (response.ok) {
         setSuccess('Transfer initiated successfully!')
         toast.success('Transfer sent', {
-          description: `$${parseFloat(amount).toFixed(2)} to ${toWalletNumber}`,
+          description: `P${parseFloat(amount).toFixed(2)} to ${toWalletNumber}`,
         })
         setFromWalletId('')
         setToWalletNumber('')
@@ -107,7 +107,7 @@ export default function TransfersPage() {
                 <option value="">Select a wallet</option>
                 {wallets.map((wallet) => (
                   <option key={wallet.id} value={wallet.id}>
-                    {wallet.name ? `${wallet.name} — ` : ''}{wallet.wallet_number} — ${wallet.balance.toFixed(2)}
+                    {wallet.name ? `${wallet.name} — ` : ''}{wallet.wallet_number} — P{wallet.balance.toFixed(2)}
                   </option>
                 ))}
               </select>
@@ -135,9 +135,9 @@ export default function TransfersPage() {
 
             {/* Amount */}
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount (USD)</Label>
+              <Label htmlFor="amount">Amount (BWP)</Label>
               <div className="flex gap-2">
-                <span className="flex items-center text-gray-600">$</span>
+                <span className="flex items-center text-gray-600">P</span>
                 <Input
                   id="amount"
                   type="number"

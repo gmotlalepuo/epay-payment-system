@@ -240,7 +240,7 @@ export default function TransactionsPage() {
                   <div className="flex items-center justify-between gap-6 sm:justify-end">
                     <div className="text-right">
                       <p className={`font-bold text-lg ${amountColor}`}>
-                        {sign}${Number(transaction.amount).toFixed(2)}
+                        {sign}P{Number(transaction.amount).toFixed(2)}
                       </p>
                       <p className="text-sm text-gray-600">{transaction.currency}</p>
                     </div>

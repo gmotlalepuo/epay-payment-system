@@ -27,9 +27,9 @@ export async function POST(request: NextRequest) {
     const amount = Number(body.amount)
     const walletId: string | undefined = body.wallet_id
 
-    if (!Number.isFinite(amount) || amount < 1) {
+    if (!Number.isFinite(amount) || amount < 8) {
       return NextResponse.json(
-        { error: 'Amount must be at least $1.00' },
+        { error: 'Amount must be at least P8.00' },
         { status: 400 },
       )
     }
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       line_items: [
         {
           price_data: {
-            currency: (wallet.currency ?? 'usd').toLowerCase(),
+            currency: 'bwp',
             product_data: {
               name: 'Wallet top-up',
               description: `Top up wallet ${wallet.id.slice(0, 8)}`,

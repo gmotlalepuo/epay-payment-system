@@ -70,7 +70,7 @@ export default function CreateQrPage() {
         return
       }
       toast.success('QR code created', {
-        description: `${description.trim()} — $${parseFloat(amount).toFixed(2)}`,
+        description: `${description.trim()} — P${parseFloat(amount).toFixed(2)}`,
       })
       router.push('/dashboard/qr-codes')
     } catch (err) {
@@ -113,7 +113,7 @@ export default function CreateQrPage() {
                   <option value="">Select a wallet</option>
                   {wallets.map((w) => (
                     <option key={w.id} value={w.id}>
-                      {w.name ? `${w.name} — ` : ''}{w.wallet_number} — ${w.balance.toFixed(2)}
+                      {w.name ? `${w.name} — ` : ''}{w.wallet_number} — P{w.balance.toFixed(2)}
                     </option>
                   ))}
                 </select>
@@ -133,9 +133,9 @@ export default function CreateQrPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="amount">Price (USD)</Label>
+              <Label htmlFor="amount">Price (BWP)</Label>
               <div className="flex items-center gap-2">
-                <span className="text-gray-600 font-medium">$</span>
+                <span className="text-gray-600 font-medium">P</span>
                 <Input
                   id="amount"
                   type="number"

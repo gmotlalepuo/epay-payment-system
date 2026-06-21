@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     const { supabase, user } = auth
 
     const body = await request.json()
-    const currency = body.currency ?? 'USD'
+    const currency = 'BWP'
     const rawName = typeof body.name === 'string' ? body.name.trim() : ''
     const name = rawName.length > 0 ? rawName.slice(0, 60) : null
 

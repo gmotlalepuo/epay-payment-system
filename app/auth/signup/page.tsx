@@ -8,6 +8,9 @@ import { useRouter } from 'next/navigation'
 import { FormEvent, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { AuthShowcase } from '@/components/auth-showcase'
+import { BrandLogo } from '@/components/brand-logo'
 
 export default function Page() {
   const [email, setEmail] = useState('')
@@ -69,30 +72,22 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(79,70,229,0.16),transparent_18%),radial-gradient(circle_at_bottom_left,rgba(34,211,238,0.18),transparent_24%),linear-gradient(180deg,#eff6ff,#eef2ff)] flex items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
-      <div className="w-full max-w-3xl">
-        <div className="mb-8 flex items-center justify-between text-sm text-slate-700">
-          <Link href="/" className="font-semibold hover:text-slate-900">Home</Link>
-          <Link href="/auth/login" className="font-semibold hover:text-slate-900">Login</Link>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground sm:px-6 lg:px-8">
+      <div className="w-full max-w-6xl">
+        <div className="mb-8 flex items-center justify-between text-sm text-muted-foreground">
+          <Link href="/" aria-label="BotsPay home"><BrandLogo priority className="h-10 w-32" /></Link>
+          <div className="flex items-center gap-2"><ThemeToggle /><Link href="/auth/login" className="font-semibold hover:text-foreground">Login</Link></div>
         </div>
-        <div className="grid gap-12 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-          <div className="space-y-6">
-            <span className="glass-pill">Premium onboarding</span>
-            <h1 className="text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-              Create a wallet that feels premium instantly.
-            </h1>
-            <p className="max-w-xl text-base leading-8 text-slate-600 sm:text-lg">
-              Build your account on a secure payment platform that gives you control and clarity from day one.
-            </p>
-          </div>
+        <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center xl:gap-16">
+          <AuthShowcase mode="signup" />
 
-          <div className="relative rounded-3xl border border-white/30 bg-white/85 p-8 shadow-[0_35px_120px_-35px_rgba(15,23,42,0.3)] backdrop-blur-2xl">
+          <div className="relative rounded-3xl border bg-card/90 p-6 shadow-[0_35px_120px_-35px_rgba(15,23,42,0.3)] backdrop-blur-2xl sm:p-8">
             <div className="absolute -right-12 top-8 h-32 w-32 rounded-full bg-slate-300/15 blur-3xl" />
             <div className="absolute left-6 bottom-10 h-24 w-24 rounded-full bg-slate-500/10 blur-3xl" />
             <div className="space-y-6">
               <div className="space-y-2">
                 <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">Create account</p>
-                <h2 className="text-2xl font-semibold text-slate-950">Fast, secure signup</h2>
+                <h2 className="text-2xl font-semibold text-foreground">Fast, secure signup</h2>
               </div>
               <form onSubmit={handleSignUp} className="space-y-5">
                 <div className="grid gap-2">
@@ -137,9 +132,9 @@ export default function Page() {
                   {isLoading ? 'Creating an account…' : 'Sign up'}
                 </Button>
               </form>
-              <div className="rounded-3xl border border-slate-200/80 bg-slate-50/90 p-4 text-center text-sm text-slate-600">
+              <div className="rounded-3xl border bg-muted/60 p-4 text-center text-sm text-muted-foreground">
                 Already have an account?{' '}
-                <Link href="/auth/login" className="font-semibold text-slate-950 hover:text-slate-700">
+                <Link href="/auth/login" className="font-semibold text-foreground hover:text-primary">
                   Login
                 </Link>
               </div>

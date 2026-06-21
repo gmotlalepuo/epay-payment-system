@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     const origin = process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin
-    const currency = String(qr.currency || wallet.currency || 'usd').toLowerCase()
+    const currency = String(qr.currency || wallet.currency || 'bwp').toLowerCase()
     const minimumAmount = APPROX_MIN_CARD_AMOUNT_BY_CURRENCY[currency] ?? 1
 
     if (amount < minimumAmount) {

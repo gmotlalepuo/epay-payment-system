@@ -86,7 +86,7 @@ export default function GuestQrPaymentSuccessPage() {
   }, [sessionId])
 
   const receiptAmount = reconcileResult?.amount ?? Number(qr?.amount ?? 0)
-  const receiptCurrency = reconcileResult?.currency ?? qr?.currency ?? 'USD'
+  const receiptCurrency = reconcileResult?.currency ?? qr?.currency ?? 'BWP'
   const receiptDescription = qr?.description ?? reconcileResult?.description ?? 'Guest card QR payment'
   const receiptReference = reconcileResult?.reference_id ?? sessionId ?? `CARD-${params.token}`
 

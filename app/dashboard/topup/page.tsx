@@ -113,7 +113,7 @@ export default function TopupPage() {
                   <option value="">Select a wallet</option>
                   {wallets.map((w) => (
                     <option key={w.id} value={w.id}>
-                      {w.name ? `${w.name} — ` : ''}{w.wallet_number} — ${Number(w.balance).toFixed(2)}
+                      {w.name ? `${w.name} — ` : ''}{w.wallet_number} — P{Number(w.balance).toFixed(2)}
                     </option>
                   ))}
                 </select>
@@ -130,23 +130,23 @@ export default function TopupPage() {
                     variant={amount === String(q) ? 'default' : 'outline'}
                     onClick={() => setAmount(String(q))}
                   >
-                    ${q}
+                    P{q}
                   </Button>
                 ))}
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount (USD)</Label>
+              <Label htmlFor="amount">Amount (BWP)</Label>
               <div className="flex items-center gap-2">
-                <span className="text-gray-600 font-medium">$</span>
+                <span className="text-gray-600 font-medium">P</span>
                 <Input
                   id="amount"
                   type="number"
                   inputMode="decimal"
                   placeholder="0.00"
                   step="0.01"
-                  min="1"
+                  min="8"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   required
@@ -172,7 +172,7 @@ export default function TopupPage() {
                 className="flex-1"
               >
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {submitting ? 'Starting…' : `Top up $${amount || '0.00'}`}
+                {submitting ? 'Starting…' : `Top up P${amount || '0.00'}`}
               </Button>
               <Button asChild type="button" variant="outline">
                 <Link href="/dashboard">Cancel</Link>

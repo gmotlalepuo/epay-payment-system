@@ -209,7 +209,7 @@ export default function WalletDetailPage() {
         <CardContent className="py-6 space-y-4">
           <div>
             <p className="text-sm opacity-80">Balance</p>
-            <p className="text-4xl font-bold mt-1">${wallet.balance.toFixed(2)}</p>
+            <p className="text-4xl font-bold mt-1">P{wallet.balance.toFixed(2)}</p>
             <p className="text-xs opacity-75 mt-1">{wallet.currency}</p>
           </div>
           <div className="flex items-center gap-2 pt-3 border-t border-white/20">
@@ -251,13 +251,13 @@ export default function WalletDetailPage() {
           <div>
             <p className="text-gray-500">Daily</p>
             <p className="font-medium">
-              ${wallet.daily_spent.toFixed(2)} / ${wallet.daily_limit.toFixed(2)}
+              P{wallet.daily_spent.toFixed(2)} / P{wallet.daily_limit.toFixed(2)}
             </p>
           </div>
           <div>
             <p className="text-gray-500">Monthly</p>
             <p className="font-medium">
-              ${wallet.monthly_spent.toFixed(2)} / ${wallet.monthly_limit.toFixed(2)}
+              P{wallet.monthly_spent.toFixed(2)} / P{wallet.monthly_limit.toFixed(2)}
             </p>
           </div>
         </CardContent>
@@ -301,7 +301,7 @@ export default function WalletDetailPage() {
                     <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">{q.description}</p>
                       <p className="text-sm text-gray-600">
-                        ${Number(q.amount).toFixed(2)}
+                        P{Number(q.amount).toFixed(2)}
                         {q.single_use && ' · single-use'}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
@@ -351,7 +351,7 @@ export default function WalletDetailPage() {
                     </div>
                     <div className="text-right">
                       <p className={`font-semibold ${color}`}>
-                        {sign}${Number(t.amount).toFixed(2)}
+                        {sign}P{Number(t.amount).toFixed(2)}
                       </p>
                       <p className="text-xs text-gray-500">{t.status}</p>
                     </div>

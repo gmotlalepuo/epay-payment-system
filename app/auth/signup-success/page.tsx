@@ -64,7 +64,7 @@ export default function SignupSuccess() {
             </svg>
           </div>
           <CardTitle className="text-2xl">Account Created Successfully!</CardTitle>
-          <CardDescription>Welcome to Digital Wallet</CardDescription>
+          <CardDescription>Welcome to BotsPay</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2 text-center">

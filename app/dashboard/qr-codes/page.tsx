@@ -202,7 +202,7 @@ export default function QrCodesListPage() {
                         <div className="min-w-0 flex-1">
                           <CardTitle className="truncate">{q.description}</CardTitle>
                           <CardDescription>
-                            ${Number(q.amount).toFixed(2)} {q.currency}
+                            P{Number(q.amount).toFixed(2)} {q.currency}
                           </CardDescription>
                         </div>
                         <div className="flex flex-col items-end gap-1">

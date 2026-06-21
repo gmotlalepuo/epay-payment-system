@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PaymentReceipt } from '@/components/payment-receipt'
+import { BrandLogo } from '@/components/brand-logo'
 
 interface ResolvedQr {
   id: string
@@ -132,7 +133,7 @@ export default function PayLanding() {
         return
       }
       toast.success('Payment sent', {
-        description: `$${qr.amount.toFixed(2)} to ${qr.receiver_name || 'recipient'}`,
+        description: `P${qr.amount.toFixed(2)} to ${qr.receiver_name || 'recipient'}`,
       })
       setReceipt({ reference_id: data.reference_id, paid_at: new Date().toISOString() })
     } catch (err) {
@@ -196,7 +197,7 @@ export default function PayLanding() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-gray-600">
-              <span className="font-medium">{qr.receiver_name || 'Recipient'}</span> · {qr.description} · ${qr.amount.toFixed(2)}
+              <span className="font-medium">{qr.receiver_name || 'Recipient'}</span> · {qr.description} · P{qr.amount.toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -213,7 +214,7 @@ export default function PayLanding() {
           <CardHeader>
             <CardTitle>Sign in to pay</CardTitle>
             <CardDescription>
-              You're paying <span className="font-medium">{qr.receiver_name || 'a Digital Wallet user'}</span> ${qr.amount.toFixed(2)} for {qr.description}.
+              You&apos;re paying <span className="font-medium">{qr.receiver_name || 'a BotsPay user'}</span> P{qr.amount.toFixed(2)} for {qr.description}.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -306,9 +307,9 @@ export default function PayLanding() {
         <CardContent className="space-y-4">
           <div className="rounded-md bg-gray-50 p-4 space-y-1">
             <div className="text-sm text-gray-500">You are paying</div>
-            <div className="text-lg font-semibold">{qr.receiver_name || 'Digital Wallet user'}</div>
+            <div className="text-lg font-semibold">{qr.receiver_name || 'BotsPay user'}</div>
             <div className="text-sm text-gray-700">{qr.description}</div>
-            <div className="text-2xl font-bold pt-2">${qr.amount.toFixed(2)}</div>
+            <div className="text-2xl font-bold pt-2">P{qr.amount.toFixed(2)}</div>
           </div>
 
           {wallets.length === 0 ? (
@@ -332,7 +333,7 @@ export default function PayLanding() {
                 <option value="">Select a wallet</option>
                 {wallets.map((w) => (
                   <option key={w.id} value={w.id}>
-                    {w.name ? `${w.name} — ` : ''}{w.wallet_number} — ${w.balance.toFixed(2)}
+                    {w.name ? `${w.name} — ` : ''}{w.wallet_number} — P{w.balance.toFixed(2)}
                   </option>
                 ))}
               </select>
@@ -358,7 +359,7 @@ export default function PayLanding() {
             size="lg"
           >
             {paying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {paying ? 'Processing…' : `Pay $${qr.amount.toFixed(2)}`}
+            {paying ? 'Processing…' : `Pay P${qr.amount.toFixed(2)}`}
           </Button>
 
           <div className="text-center text-xs text-gray-500">or</div>
@@ -382,8 +383,8 @@ export default function PayLanding() {
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">{children}</div>
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md"><div className="mb-5 flex justify-center"><BrandLogo priority className="h-12 w-40" /></div>{children}</div>
     </div>
   )
 }

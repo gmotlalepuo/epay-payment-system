@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         token,
         description,
         amount,
-        currency: wallet.currency ?? 'USD',
+        currency: wallet.currency ?? 'BWP',
         qr_image_url: qrImage,
         single_use: singleUse,
         expiry_at: expiryAt,

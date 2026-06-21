@@ -79,7 +79,7 @@ export default function TopupSuccessPage() {
           <CardDescription>
             {state === 'loading' && 'Confirming with Stripe and updating your balance.'}
             {state === 'done' && result?.credited &&
-              `$${result.amount?.toFixed(2)} has been added to your wallet.`}
+              `P${result.amount?.toFixed(2)} has been added to your wallet.`}
             {state === 'done' && result?.already_credited &&
               'This payment was already applied to your wallet.'}
             {state === 'done' && !result?.credited && !result?.already_credited &&

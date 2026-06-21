@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card'
 import { useRouter } from 'next/navigation'
 import { DashboardMetrics } from '@/components/dashboard-metrics'
 import { ListPagination, ListToolbar, usePagedItems } from '@/components/list-tools'
+import { ArrowLeftRight, Bell, CircleHelp, CreditCard, Lightbulb, QrCode, ScanLine, Settings, WalletCards } from 'lucide-react'
 
 export default function DashboardHome() {
   const [user, setUser] = useState<any>(null)
@@ -82,13 +83,13 @@ export default function DashboardHome() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
+    <div className="space-y-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Account overview</p>
+            <h1 className="mt-1 text-3xl font-bold">Welcome back</h1>
+            <p className="mt-1 text-muted-foreground">
               Welcome back, {user?.email}
             </p>
           </div>
@@ -98,10 +99,12 @@ export default function DashboardHome() {
         </div>
 
         {/* Total Balance Card */}
-        <Card className="mb-8 p-6 bg-slate-950/95 text-white shadow-lg shadow-slate-900/10">
-          <p className="text-sm font-medium opacity-90">Total Balance</p>
-          <h2 className="text-4xl font-bold mt-2">${totalBalance.toFixed(2)}</h2>
-          <p className="text-sm opacity-75 mt-4">{wallets.length} wallet(s)</p>
+        <Card className="relative mb-8 overflow-hidden border-0 bg-slate-950 p-7 text-white shadow-xl shadow-slate-950/10">
+          <div className="absolute -right-12 -top-16 size-52 rounded-full bg-primary/20 blur-2xl" />
+          <div className="relative flex items-start justify-between">
+            <div><p className="text-sm font-medium text-slate-300">Total available balance</p><h2 className="mt-2 text-4xl font-bold tabular-nums sm:text-5xl">P{totalBalance.toFixed(2)}</h2><p className="mt-5 text-sm text-slate-400">Across {wallets.length} wallet{wallets.length === 1 ? '' : 's'}</p></div>
+            <span className="grid size-12 place-items-center rounded-xl bg-sky-400/15 text-sky-300"><WalletCards /></span>
+          </div>
         </Card>
 
         {/* Wallets Section */}
@@ -130,7 +133,7 @@ export default function DashboardHome() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {walletPage.pagedItems.map((wallet) => (
-            <Card key={wallet.id} className="p-6 hover:shadow-lg transition-shadow">
+            <Card key={wallet.id} className="p-6 transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-lg">
               <div className="flex justify-between items-start mb-2">
                 <div className="min-w-0 flex-1">
                   <Link
@@ -147,7 +150,7 @@ export default function DashboardHome() {
                   {wallet.status}
                 </span>
               </div>
-              <p className="text-2xl font-bold mt-4">${wallet.balance.toFixed(2)}</p>
+              <p className="text-2xl font-bold mt-4">P{wallet.balance.toFixed(2)}</p>
               <p className="text-xs text-gray-600 mt-2">{wallet.currency}</p>
               <div className="mt-4 flex gap-2">
                 <Button asChild variant="outline" className="flex-1">
@@ -210,8 +213,8 @@ export default function DashboardHome() {
           <h2 className="text-2xl font-bold mb-6">Available Features</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Top Up */}
-            <Card className="p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-3">💳</div>
+            <Card className="p-6 transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-lg">
+              <div className="mb-3 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary"><CreditCard className="size-5" /></div>
               <h3 className="font-bold mb-2">Top up wallet</h3>
               <p className="text-sm text-gray-600 mb-4">Add funds with a card via Stripe</p>
               <Button asChild className="w-full">
@@ -221,7 +224,7 @@ export default function DashboardHome() {
 
             {/* Send Money */}
             <Card className="p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-3">💸</div>
+              <div className="mb-3 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary"><ArrowLeftRight className="size-5" /></div>
               <h3 className="font-bold mb-2">Send Money</h3>
               <p className="text-sm text-gray-600 mb-4">Transfer funds instantly to other wallets</p>
               <Button asChild className="w-full">
@@ -231,7 +234,7 @@ export default function DashboardHome() {
 
             {/* View Transactions */}
             <Card className="p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-3">📊</div>
+              <div className="mb-3 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary"><WalletCards className="size-5" /></div>
               <h3 className="font-bold mb-2">Transaction History</h3>
               <p className="text-sm text-gray-600 mb-4">View all your past and pending transactions</p>
               <Button asChild className="w-full" variant="outline">
@@ -241,7 +244,7 @@ export default function DashboardHome() {
 
             {/* Pay by QR */}
             <Card className="p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-3">🔳</div>
+              <div className="mb-3 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary"><ScanLine className="size-5" /></div>
               <h3 className="font-bold mb-2">Pay by QR</h3>
               <p className="text-sm text-gray-600 mb-4">Scan or paste a payment link to pay</p>
               <Button asChild className="w-full" variant="outline">
@@ -251,7 +254,7 @@ export default function DashboardHome() {
 
             {/* Receive via QR */}
             <Card className="p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-3">📥</div>
+              <div className="mb-3 grid size-10 place-items-center rounded-xl bg-primary/10 text-primary"><QrCode className="size-5" /></div>
               <h3 className="font-bold mb-2">Receive via QR</h3>
               <p className="text-sm text-gray-600 mb-4">Generate a QR code for an item or service</p>
               <Button asChild className="w-full">
@@ -261,7 +264,7 @@ export default function DashboardHome() {
 
             {/* Complaints */}
             <Card className="p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-3">⚠️</div>
+              <div className="mb-3 grid size-10 place-items-center rounded-xl bg-secondary/10 text-secondary"><CircleHelp className="size-5" /></div>
               <h3 className="font-bold mb-2">File Complaint</h3>
               <p className="text-sm text-gray-600 mb-4">Report issues or disputes with transactions</p>
               <Button asChild className="w-full" variant="outline">
@@ -271,7 +274,7 @@ export default function DashboardHome() {
 
             {/* Notifications */}
             <Card className="p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-3">🔔</div>
+              <div className="mb-3 grid size-10 place-items-center rounded-xl bg-secondary/10 text-secondary"><Bell className="size-5" /></div>
               <h3 className="font-bold mb-2">Notifications</h3>
               <p className="text-sm text-gray-600 mb-4">Stay updated with transaction alerts</p>
               <Button asChild className="w-full" variant="outline">
@@ -281,7 +284,7 @@ export default function DashboardHome() {
 
             {/* Settings */}
             <Card className="p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-3">⚙️</div>
+              <div className="mb-3 grid size-10 place-items-center rounded-xl bg-secondary/10 text-secondary"><Settings className="size-5" /></div>
               <h3 className="font-bold mb-2">Account Settings</h3>
               <p className="text-sm text-gray-600 mb-4">Manage profile and preferences</p>
               <Button asChild className="w-full" variant="outline">
@@ -293,13 +296,12 @@ export default function DashboardHome() {
 
 
         {/* Info Section */}
-        <Card className="p-6 bg-blue-50 border-blue-200">
-          <h3 className="font-bold text-blue-900 mb-3">💡 Quick Tip</h3>
-          <p className="text-sm text-blue-800">
+        <Card className="border-primary/20 bg-primary/5 p-6">
+          <h3 className="mb-3 flex items-center gap-2 font-bold text-foreground"><Lightbulb className="size-5 text-primary" />Quick tip</h3>
+          <p className="text-sm text-muted-foreground">
             Create multiple wallets for different purposes. Use your wallet number to receive transfers from others.
           </p>
         </Card>
-      </div>
-    </main>
+    </div>
   )
 }

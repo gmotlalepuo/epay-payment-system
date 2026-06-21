@@ -1,17 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { NotificationBell } from '@/components/notification-bell'
+import { DashboardShell } from '@/components/dashboard-shell'
+import { LoaderCircle, ShieldAlert } from 'lucide-react'
 
 export default function DashboardLayout({
   children,
@@ -45,91 +37,18 @@ export default function DashboardLayout({
   }
 
   if (loading) {
-    return <div className="text-center py-8">Loading...</div>
+    return <div className="grid min-h-dvh place-items-center bg-background"><div className="text-center"><LoaderCircle className="mx-auto size-8 animate-spin text-primary" /><p className="mt-3 text-sm font-medium text-muted-foreground">Preparing your workspace...</p></div></div>
   }
 
   if (!user) {
     return (
-      <div className="text-center py-8">
-        <p>Please log in to access this page</p>
+      <div className="grid min-h-dvh place-items-center bg-background p-6 text-center">
+        <div><ShieldAlert className="mx-auto size-9 text-muted-foreground" /><p className="mt-3 font-medium">Please log in to access this page</p></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-8">
-            <Link href="/dashboard" className="flex items-center gap-2 font-bold text-lg">
-              <Image
-                src="/logo.png"
-                alt="Digital Wallet Logo"
-                width={32}
-                height={32}
-                className="rounded"
-              />
-              Digital Wallet
-            </Link>
-            <nav className="hidden md:flex space-x-6">
-              <Link
-                href="/dashboard"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/dashboard/transactions"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Transactions
-              </Link>
-              <Link
-                href="/dashboard/qr-codes"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                QR Codes
-              </Link>
-              <Link
-                href="/dashboard/qr-scanner"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Pay
-              </Link>
-              <Link
-                href="/dashboard/complaints"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Complaints
-              </Link>
-            </nav>
-          </div>
-          <div className="flex items-center space-x-2">
-            <NotificationBell />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost">
-                  {user.email}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link href="/dashboard/settings">Settings</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout}>
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
-    </div>
+    <DashboardShell email={user.email ?? 'Account'} onLogout={handleLogout}>{children}</DashboardShell>
   )
 }

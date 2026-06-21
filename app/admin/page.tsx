@@ -224,18 +224,19 @@ export default function AdminDashboard() {
   )
 
   if (loading) {
-    return <div className="text-center py-8">Loading admin dashboard...</div>
+    return <div className="rounded-xl border bg-card py-16 text-center text-sm font-medium text-muted-foreground">Loading administration workspace...</div>
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-2">Platform overview and management</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Control centre</p>
+        <h1 className="mt-1 text-3xl font-bold">Admin dashboard</h1>
+        <p className="mt-2 text-muted-foreground">Platform overview and management</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -260,7 +261,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${stats.totalRevenue.toFixed(2)}
+              P{stats.totalRevenue.toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -278,44 +279,44 @@ export default function AdminDashboard() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="border-b border-gray-200">
-        <div className="flex space-x-8">
+      <div className="overflow-x-auto rounded-xl border bg-card p-1.5 shadow-xs">
+        <div className="flex min-w-max gap-1">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`min-h-10 rounded-lg px-4 text-sm font-semibold ${
               activeTab === 'overview'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
             Overview
           </button>
           <button
             onClick={() => setActiveTab('users')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`min-h-10 rounded-lg px-4 text-sm font-semibold ${
               activeTab === 'users'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
             Users
           </button>
           <button
             onClick={() => setActiveTab('transactions')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`min-h-10 rounded-lg px-4 text-sm font-semibold ${
               activeTab === 'transactions'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
             Transactions
           </button>
           <button
             onClick={() => setActiveTab('complaints')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`min-h-10 rounded-lg px-4 text-sm font-semibold ${
               activeTab === 'complaints'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             }`}
           >
             Complaints
@@ -507,7 +508,7 @@ export default function AdminDashboard() {
                   {transactionsPage.pagedItems.map((tx) => (
                     <tr key={tx.id} className="border-b hover:bg-gray-50">
                       <td className="py-2 px-2 capitalize">{tx.type}</td>
-                      <td className="py-2 px-2">${tx.amount.toFixed(2)}</td>
+                      <td className="py-2 px-2">P{tx.amount.toFixed(2)}</td>
                       <td className="py-2 px-2">
                         <Badge className={getStatusColor(tx.status)}>
                           {tx.status}

@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 export default function CreateWalletPage() {
   const router = useRouter()
   const [name, setName] = useState('')
-  const [currency, setCurrency] = useState('USD')
+  const [currency] = useState('BWP')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -89,10 +89,10 @@ export default function CreateWalletPage() {
               <select
                 id="currency"
                 value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
+                disabled
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
-                <option value="USD">USD - US Dollar</option>
+                <option value="BWP">BWP - Botswana Pula</option>
                 <option value="EUR">EUR - Euro</option>
                 <option value="GBP">GBP - British Pound</option>
                 <option value="ZAR">ZAR - South African Rand</option>
@@ -108,8 +108,8 @@ export default function CreateWalletPage() {
               <h4 className="font-semibold text-blue-900">Your wallet will have:</h4>
               <ul className="space-y-1 text-sm text-blue-800">
                 <li>✓ Unique wallet number for receiving transfers</li>
-                <li>✓ Daily spending limit: $10,000</li>
-                <li>✓ Monthly spending limit: $100,000</li>
+                <li>✓ Daily spending limit: P10,000</li>
+                <li>✓ Monthly spending limit: P100,000</li>
                 <li>✓ Instant balance updates</li>
                 <li>✓ Transaction history</li>
               </ul>

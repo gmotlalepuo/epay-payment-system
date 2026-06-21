@@ -11,6 +11,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { AuthShowcase } from '@/components/auth-showcase'
+import { BrandLogo } from '@/components/brand-logo'
 
 function LoginContent() {
   const [email, setEmail] = useState('')
@@ -49,31 +52,23 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_18%),radial-gradient(circle_at_bottom_right,rgba(168,85,247,0.18),transparent_24%),linear-gradient(180deg,#eff6ff,#eef2ff)] flex items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10 text-foreground sm:px-6 lg:px-8">
 
-      <div className="w-full max-w-3xl">
-        <div className="mb-8 flex items-center justify-between text-sm text-slate-700">
-          <Link href="/" className="font-semibold hover:text-slate-900">Home</Link>
-          <Link href="/auth/signup" className="font-semibold hover:text-slate-900">Create account</Link>
+      <div className="w-full max-w-6xl">
+        <div className="mb-8 flex items-center justify-between text-sm text-muted-foreground">
+          <Link href="/" aria-label="BotsPay home"><BrandLogo priority className="h-10 w-32" /></Link>
+          <div className="flex items-center gap-2"><ThemeToggle /><Link href="/auth/signup" className="font-semibold hover:text-foreground">Create account</Link></div>
         </div>
 
-        <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-          <div className="space-y-6">
-            <span className="glass-pill">Secure sign-in</span>
-            <h1 className="text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
-              Sign in to your wallet with confidence.
-            </h1>
-            <p className="max-w-xl text-base leading-8 text-slate-600 sm:text-lg">
-              Access your wallet quickly and securely with a clear, professional login flow.
-            </p>
-          </div>
+        <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-center xl:gap-16">
+          <AuthShowcase mode="login" />
 
-          <div className="relative rounded-3xl border border-white/30 bg-white/85 p-8 shadow-[0_35px_120px_-35px_rgba(15,23,42,0.3)] backdrop-blur-2xl">
+          <div className="relative rounded-3xl border bg-card/90 p-6 shadow-[0_35px_120px_-35px_rgba(15,23,42,0.3)] backdrop-blur-2xl sm:p-8">
 
             <div className="space-y-6">
               <div className="space-y-2">
                 <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">Welcome back</p>
-                <h2 className="text-2xl font-semibold text-slate-950">Login to your wallet</h2>
+                <h2 className="text-2xl font-semibold text-foreground">Login to your wallet</h2>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-5">
@@ -109,9 +104,9 @@ function LoginContent() {
                 </Button>
               </form>
 
-              <div className="text-center text-sm text-slate-600">
+              <div className="text-center text-sm text-muted-foreground">
                 Don&apos;t have an account?{' '}
-                <Link href="/auth/signup" className="font-semibold text-slate-950">
+                <Link href="/auth/signup" className="font-semibold text-foreground">
                   Sign up
                 </Link>
               </div>

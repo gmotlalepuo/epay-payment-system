@@ -52,7 +52,7 @@ function monthStart(d = new Date()) {
 }
 
 function fmtCurrency(n: number) {
-  return `$${n.toFixed(2)}`
+  return `P${n.toFixed(2)}`
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -240,7 +240,7 @@ export function DashboardMetrics() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                 <XAxis dataKey="day" tick={{ fontSize: 11 }} interval={4} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `P${v}`} />
                 <Tooltip
                   formatter={(v: number) => fmtCurrency(v)}
                   labelStyle={{ fontWeight: 600 }}

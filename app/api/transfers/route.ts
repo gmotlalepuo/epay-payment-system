@@ -184,11 +184,11 @@ export async function POST(request: NextRequest) {
     }
 
     const senderMsg = qrCodeId
-      ? `You paid $${amount.toFixed(2)} for ${description ?? 'a payment'}`
-      : `You sent $${amount.toFixed(2)}`
+      ? `You paid P${amount.toFixed(2)} for ${description ?? 'a payment'}`
+      : `You sent P${amount.toFixed(2)}`
     const receiverMsg = qrCodeId
-      ? `You received $${amount.toFixed(2)} for ${description ?? 'a payment'}`
-      : `You received $${amount.toFixed(2)}`
+      ? `You received P${amount.toFixed(2)} for ${description ?? 'a payment'}`
+      : `You received P${amount.toFixed(2)}`
 
     await Promise.all([
       createNotification(notificationClient, {
@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
       type: 'transaction',
       category: 'payment',
       title: qrCodeId ? 'QR payment completed' : 'Transfer completed',
-      message: `${user.email} sent $${amount.toFixed(2)}${qrCodeId ? ' via QR payment' : ''}.`,
+      message: `${user.email} sent P${amount.toFixed(2)}${qrCodeId ? ' via QR payment' : ''}.`,
       link_url: '/admin',
       reference_id: txn.transaction_id,
     })
@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Low-balance reminder: notify the sender if their wallet dropped below $5
+    // Low-balance reminder: notify the sender if their wallet dropped below P5
     const LOW_BALANCE_THRESHOLD = 5
     const { data: senderWallet } = await supabase
       .from('wallets')
@@ -257,7 +257,7 @@ export async function POST(request: NextRequest) {
         type: 'wallet',
         category: 'wallet',
         title: 'Low balance',
-        message: `${label} is down to $${Number(senderWallet.balance).toFixed(2)}. Top up to keep transacting.`,
+        message: `${label} is down to P${Number(senderWallet.balance).toFixed(2)}. Top up to keep transacting.`,
         link_url: `/dashboard/wallets/${fromWalletId}`,
       })
     }

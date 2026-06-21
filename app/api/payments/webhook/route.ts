@@ -71,7 +71,7 @@ async function handlePaymentIntentSucceeded(
     to_wallet_id: walletId,
     type: 'topup',
     amount,
-    currency: wallet.currency ?? 'USD',
+    currency: wallet.currency ?? 'BWP',
     status: 'completed',
     stripe_payment_intent_id: paymentIntent.id,
     reference_id: `TOPUP-${paymentIntent.id}`,
@@ -84,7 +84,7 @@ async function handlePaymentIntentSucceeded(
     type: 'transaction',
     category: 'payment',
     title: 'Top-up successful',
-    message: `$${amount.toFixed(2)} has been added to your wallet`,
+    message: `P${amount.toFixed(2)} has been added to your wallet`,
     link_url: `/dashboard/wallets/${walletId}`,
   })
 
@@ -92,7 +92,7 @@ async function handlePaymentIntentSucceeded(
     type: 'transaction',
     category: 'payment',
     title: 'Wallet top-up completed',
-    message: `User ${userId} topped up $${amount.toFixed(2)}.`,
+    message: `User ${userId} topped up P${amount.toFixed(2)}.`,
     link_url: '/admin',
   })
 
@@ -121,7 +121,7 @@ async function handlePaymentIntentFailed(
     type: 'transaction',
     category: 'payment',
     title: 'Top-up failed',
-    message: `Your top-up of $${amount.toFixed(2)} could not be processed. Please try again.`,
+    message: `Your top-up of P${amount.toFixed(2)} could not be processed. Please try again.`,
     link_url: '/dashboard/topup',
   })
 

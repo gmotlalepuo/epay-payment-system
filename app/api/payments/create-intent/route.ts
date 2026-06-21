@@ -13,11 +13,12 @@ export async function POST(request: NextRequest) {
     const { supabase, user } = auth
 
     const body = await request.json()
-    const { amount, currency = 'usd', description, metadata = {} } = body
+    const { amount, description, metadata = {} } = body
+    const currency = 'bwp'
 
-    if (!amount || amount <= 0) {
+    if (!amount || amount < 8) {
       return NextResponse.json(
-        { error: 'Invalid amount' },
+        { error: 'Amount must be at least P8.00' },
         { status: 400 }
       )
     }

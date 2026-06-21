@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       to_wallet_id: walletId,
       type: 'topup',
       amount,
-      currency: wallet.currency ?? 'USD',
+      currency: wallet.currency ?? 'BWP',
       status: 'completed',
       stripe_payment_intent_id: pi.id,
       reference_id: referenceId,
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       type: 'transaction',
       category: 'payment',
       title: 'Top-up successful',
-      message: `$${amount.toFixed(2)} has been added to your wallet`,
+      message: `P${amount.toFixed(2)} has been added to your wallet`,
       link_url: `/dashboard/wallets/${walletId}`,
     })
 
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       type: 'transaction',
       category: 'payment',
       title: 'Wallet top-up reconciled',
-      message: `User ${userId} reconciled a $${amount.toFixed(2)} top-up.`,
+      message: `User ${userId} reconciled a P${amount.toFixed(2)} top-up.`,
       link_url: '/admin',
     })
 
