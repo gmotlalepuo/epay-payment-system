@@ -4,6 +4,33 @@
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
+
+-- Older notification rows may have UI-status types such as info/success/error.
+-- Normalize them before restoring the stricter product event type constraint.
+UPDATE public.notifications
+SET type = CASE
+  WHEN type IN ('transaction', 'security', 'wallet', 'complaint', 'system') THEN type
+  WHEN category = 'payment' OR link_url ILIKE '%transaction%' OR title ILIKE '%top-up%' THEN 'transaction'
+  WHEN category = 'security' THEN 'security'
+  WHEN category = 'wallet' THEN 'wallet'
+  WHEN category = 'complaint' THEN 'complaint'
+  ELSE 'system'
+END
+WHERE type IS NULL
+   OR type NOT IN ('transaction', 'security', 'wallet', 'complaint', 'system');
+
+UPDATE public.notifications
+SET category = CASE
+  WHEN category IN ('payment', 'security', 'wallet', 'complaint', 'merchant', 'system') THEN category
+  WHEN type = 'transaction' THEN 'payment'
+  WHEN type = 'security' THEN 'security'
+  WHEN type = 'wallet' THEN 'wallet'
+  WHEN type = 'complaint' THEN 'complaint'
+  ELSE 'system'
+END
+WHERE category IS NULL
+   OR category NOT IN ('payment', 'security', 'wallet', 'complaint', 'merchant', 'system');
+
 ALTER TABLE public.notifications ADD CONSTRAINT notifications_type_check
   CHECK (type IN ('transaction', 'security', 'wallet', 'complaint', 'system'));
 
