@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { NotificationBell } from '@/components/notification-bell'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
@@ -65,11 +65,24 @@ function ServicesMenu({ mobile }: { mobile?: boolean }) {
   )
 }
 
-export function DashboardShell({ children, email, onLogout }: { children: React.ReactNode; email: string; onLogout: () => void | Promise<void> }) {
+type DashboardShellProps = {
+  children: React.ReactNode
+  email: string
+  displayName?: string | null
+  avatarUrl?: string | null
+  onLogout: () => void | Promise<void>
+}
+
+export function DashboardShell({ children, email, displayName, avatarUrl, onLogout }: DashboardShellProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
-  const initials = email.slice(0, 2).toUpperCase()
+  const label = displayName?.trim() || email
+  const initials = label
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('')
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
@@ -84,8 +97,8 @@ export function DashboardShell({ children, email, onLogout }: { children: React.
             <ThemeToggle />
             <NotificationBell />
             <DropdownMenu>
-              <DropdownMenuTrigger asChild><Button variant="ghost" className="h-11 gap-2 rounded-xl px-2"><Avatar className="size-8 border border-primary/25"><AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">{initials}</AvatarFallback></Avatar><span className="hidden max-w-32 truncate text-sm xl:block">{email}</span></Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64"><DropdownMenuLabel><span className="block text-xs font-normal text-muted-foreground">Signed in as</span><span className="block truncate">{email}</span></DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem asChild><Link href="/dashboard/settings"><Settings />Settings</Link></DropdownMenuItem><DropdownMenuItem asChild><Link href="/dashboard"><UserRound />Account overview</Link></DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onSelect={(event) => { event.preventDefault(); setConfirmLogout(true) }} className="text-destructive focus:text-destructive"><LogOut />Sign out</DropdownMenuItem></DropdownMenuContent>
+              <DropdownMenuTrigger asChild><Button variant="ghost" className="h-11 gap-2 rounded-xl px-2"><Avatar className="size-8 border border-primary/25">{avatarUrl ? <AvatarImage src={avatarUrl} alt={`${label} avatar`} /> : null}<AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">{initials || 'BP'}</AvatarFallback></Avatar><span className="hidden max-w-32 truncate text-sm xl:block">{label}</span></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64"><DropdownMenuLabel><span className="block text-xs font-normal text-muted-foreground">Signed in as</span><span className="block truncate">{label}</span><span className="block truncate text-xs font-normal text-muted-foreground">{email}</span></DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem asChild><Link href="/dashboard/settings"><Settings />Settings</Link></DropdownMenuItem><DropdownMenuItem asChild><Link href="/dashboard"><UserRound />Account overview</Link></DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onSelect={(event) => { event.preventDefault(); setConfirmLogout(true) }} className="text-destructive focus:text-destructive"><LogOut />Sign out</DropdownMenuItem></DropdownMenuContent>
             </DropdownMenu>
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen((open) => !open)} aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}>{mobileOpen ? <X /> : <Menu />}</Button>
           </div>

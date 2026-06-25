@@ -24,6 +24,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const amount = Number(body.amount)
     const walletId: string | undefined = body.wallet_id
+    const successUrl = typeof body.success_url === 'string' ? body.success_url : null
+    const cancelUrl = typeof body.cancel_url === 'string' ? body.cancel_url : null
 
     if (!Number.isFinite(amount) || amount < 8) {
       return NextResponse.json(
@@ -89,8 +91,8 @@ export async function POST(request: NextRequest) {
           source: 'wallet_topup',
         },
       },
-      success_url: `${origin}/dashboard/topup/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/dashboard/topup?cancelled=1`,
+      success_url: successUrl ?? `${origin}/dashboard/topup/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: cancelUrl ?? `${origin}/dashboard/topup?cancelled=1`,
     })
 
     return NextResponse.json({ url: session.url })

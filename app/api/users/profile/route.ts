@@ -1,5 +1,29 @@
 import { getAuthenticatedContext } from '@/lib/auth'
+import { friendlyErrorResponse } from '@/lib/api-errors'
 import { NextRequest, NextResponse } from 'next/server'
+
+const editableProfileFields = [
+  'first_name',
+  'last_name',
+  'phone_number',
+  'date_of_birth',
+  'address_line1',
+  'address_line2',
+  'city',
+  'state',
+  'postal_code',
+  'country',
+] as const
+
+function cleanOptionalString(value: unknown, maxLength: number) {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed.slice(0, maxLength) : null
+}
+
+function isValidDateOnly(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     if (readErr) {
       console.error('[profile] read error:', readErr)
-      return NextResponse.json({ error: readErr.message }, { status: 500 })
+      return friendlyErrorResponse(readErr)
     }
 
     if (existing) {
@@ -46,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     if (insertErr) {
       console.error('[profile] backfill insert error:', insertErr)
-      return NextResponse.json({ error: insertErr.message }, { status: 500 })
+      return friendlyErrorResponse(insertErr)
     }
 
     return NextResponse.json({ profile: inserted })
@@ -67,14 +91,69 @@ export async function PUT(request: NextRequest) {
     }
     const { supabase, user } = auth
 
-    const { first_name, last_name, phone_number } = await request.json()
+    const body = await request.json()
+
+    const protectedFields = ['id', 'email', 'role', 'status', 'password_hash']
+    if (protectedFields.some((field) => Object.prototype.hasOwnProperty.call(body, field))) {
+      return NextResponse.json(
+        {
+          error: 'Protected profile fields cannot be updated from this endpoint.',
+          userMessage: 'Some profile fields cannot be changed here.',
+        },
+        { status: 400 },
+      )
+    }
+
+    const firstName = cleanOptionalString(body.first_name, 80)
+    const lastName = cleanOptionalString(body.last_name, 80)
+    const phoneNumber = cleanOptionalString(body.phone_number, 40)
+
+    if (!firstName || !lastName || !phoneNumber) {
+      return NextResponse.json(
+        {
+          error: 'First name, last name, and phone number are required.',
+          userMessage: 'Please enter your first name, last name, and phone number.',
+          fields: {
+            first_name: !firstName ? 'First name is required.' : undefined,
+            last_name: !lastName ? 'Last name is required.' : undefined,
+            phone_number: !phoneNumber ? 'Phone number is required.' : undefined,
+          },
+        },
+        { status: 422 },
+      )
+    }
+
+    const dateOfBirth = cleanOptionalString(body.date_of_birth, 10)
+    if (dateOfBirth && !isValidDateOnly(dateOfBirth)) {
+      return NextResponse.json(
+        {
+          error: 'Date of birth must be YYYY-MM-DD.',
+          userMessage: 'Please enter date of birth in YYYY-MM-DD format.',
+          fields: { date_of_birth: 'Use YYYY-MM-DD format.' },
+        },
+        { status: 422 },
+      )
+    }
 
     const patch: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
+      first_name: firstName,
+      last_name: lastName,
+      phone_number: phoneNumber,
+      date_of_birth: dateOfBirth,
+      address_line1: cleanOptionalString(body.address_line1, 160),
+      address_line2: cleanOptionalString(body.address_line2, 160),
+      city: cleanOptionalString(body.city, 80),
+      state: cleanOptionalString(body.state, 80),
+      postal_code: cleanOptionalString(body.postal_code, 32),
+      country: cleanOptionalString(body.country, 80),
     }
-    if (typeof first_name === 'string') patch.first_name = first_name.trim()
-    if (typeof last_name === 'string') patch.last_name = last_name.trim()
-    if (typeof phone_number === 'string') patch.phone_number = phone_number.trim()
+
+    for (const field of editableProfileFields) {
+      if (!Object.prototype.hasOwnProperty.call(body, field) && field !== 'first_name' && field !== 'last_name' && field !== 'phone_number') {
+        delete patch[field]
+      }
+    }
 
     const { data: profile, error } = await supabase
       .from('users')
@@ -85,7 +164,7 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       console.error('[profile] PUT error:', error)
-      return NextResponse.json({ error: error.message }, { status: 400 })
+      return friendlyErrorResponse(error, 400)
     }
 
     return NextResponse.json({ profile })

@@ -24,6 +24,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const qrCodeId: string | undefined = body.qr_code_id ?? body.qrCodeId
+    const successUrl = typeof body.success_url === 'string' ? body.success_url : null
+    const cancelUrl = typeof body.cancel_url === 'string' ? body.cancel_url : null
 
     if (!qrCodeId) {
       return NextResponse.json({ error: 'qr_code_id is required' }, { status: 400 })
@@ -103,8 +105,8 @@ export async function POST(request: NextRequest) {
         qr_code_id: qr.id,
         qr_token: qr.token,
       },
-      success_url: `${origin}/pay/${qr.token}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/pay/${qr.token}?cancelled=1`,
+      success_url: successUrl ?? `${origin}/pay/${qr.token}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: cancelUrl ?? `${origin}/pay/${qr.token}?cancelled=1`,
     })
 
     return NextResponse.json({ url: session.url })
