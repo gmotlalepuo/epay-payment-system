@@ -44,6 +44,7 @@ export default function QrCodesListPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pendingId, setPendingId] = useState<string | null>(null)
+  const [deletePendingId, setDeletePendingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [useFilter, setUseFilter] = useState('all')
@@ -101,6 +102,27 @@ export default function QrCodesListPage() {
       toast.success('Link copied')
     } catch {
       toast.error('Could not copy link')
+    }
+  }
+
+  async function deleteQrCode(q: QrCode) {
+    const confirmed = window.confirm(
+      `Delete QR code "${q.description}"? This cannot be undone. QR codes with completed payments should be deactivated instead.`,
+    )
+    if (!confirmed) return
+
+    setDeletePendingId(q.id)
+    try {
+      const res = await apiFetch(`/api/qr-codes/${q.id}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error('Could not delete QR code', { description: data.error })
+        return
+      }
+      setQrCodes((prev) => prev.filter((item) => item.id !== q.id))
+      toast.success('QR code deleted')
+    } finally {
+      setDeletePendingId(null)
     }
   }
 
@@ -325,6 +347,18 @@ export default function QrCodesListPage() {
                             {q.is_active ? 'Deactivate' : 'Reactivate'}
                           </Button>
                         )}
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteQrCode(q)}
+                          disabled={deletePendingId === q.id}
+                        >
+                          {deletePendingId === q.id && (
+                            <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                          )}
+                          Delete
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
