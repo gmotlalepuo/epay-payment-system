@@ -82,6 +82,16 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (existing) {
+      await createNotification(supabase, {
+        user_id: userId,
+        type: 'transaction',
+        category: 'payment',
+        title: 'Top-up successful',
+        message: `P${amount.toFixed(2)} has been added to your wallet`,
+        link_url: `/dashboard/wallets/${walletId}`,
+        reference_id: existing.id,
+      })
+
       return NextResponse.json({
         credited: false,
         already_credited: true,
