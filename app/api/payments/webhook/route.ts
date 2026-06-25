@@ -8,6 +8,15 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
 
+type TopUpCreditResult = {
+  credited: boolean
+  already_credited: boolean
+  transaction_id: string
+  reference_id: string
+  wallet_id: string
+  amount: number
+}
+
 async function getGuestQrPayerDetails(paymentIntentId: string) {
   try {
     const sessions = await stripe.checkout.sessions.list({
@@ -38,17 +47,9 @@ async function handlePaymentIntentSucceeded(
     return
   }
 
-  // Idempotency: bail if we've already credited for this payment_intent
-  const { data: existing } = await supabase
-    .from('transactions')
-    .select('id')
-    .eq('stripe_payment_intent_id', paymentIntent.id)
-    .maybeSingle()
-  if (existing) return
-
   const { data: wallet, error: walletError } = await supabase
     .from('wallets')
-    .select('balance, currency')
+    .select('currency')
     .eq('id', walletId)
     .single()
 
@@ -57,30 +58,21 @@ async function handlePaymentIntentSucceeded(
     return
   }
 
-  // Top-ups credit balance only — they do NOT consume daily spending limit.
-  await supabase
-    .from('wallets')
-    .update({
-      balance: parseFloat(wallet.balance) + amount,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', walletId)
-
-  const referenceId = `TOPUP-${paymentIntent.id}`
-  const { data: transaction } = await supabase.from('transactions').insert({
-    from_wallet_id: null,
-    to_wallet_id: walletId,
-    type: 'topup',
-    amount,
-    currency: wallet.currency ?? 'BWP',
-    status: 'completed',
-    stripe_payment_intent_id: paymentIntent.id,
-    reference_id: referenceId,
-    description: 'Wallet top-up via Stripe',
-    completed_at: new Date().toISOString(),
+  const { data: creditRows, error: creditError } = await supabase.rpc('fn_credit_stripe_topup', {
+    p_user_id: userId,
+    p_wallet_id: walletId,
+    p_payment_intent_id: paymentIntent.id,
+    p_amount: amount,
+    p_currency: wallet.currency ?? paymentIntent.currency?.toUpperCase() ?? 'BWP',
+    p_description: 'Wallet top-up via Stripe',
   })
-    .select('id')
-    .single()
+
+  const credit = (Array.isArray(creditRows) ? creditRows[0] : creditRows) as TopUpCreditResult | undefined
+
+  if (creditError || !credit) {
+    console.error('[stripe-webhook] Failed to credit topup:', creditError)
+    throw creditError ?? new Error('Failed to credit topup')
+  }
 
   await createNotification(supabase, {
     user_id: userId,
@@ -89,8 +81,12 @@ async function handlePaymentIntentSucceeded(
     title: 'Top-up successful',
     message: `P${amount.toFixed(2)} has been added to your wallet`,
     link_url: `/dashboard/wallets/${walletId}`,
-    reference_id: transaction?.id ?? null,
+    reference_id: credit.transaction_id,
   })
+
+  if (credit.already_credited) {
+    return
+  }
 
   await notifyAdmins(supabase, {
     type: 'transaction',
@@ -106,7 +102,12 @@ async function handlePaymentIntentSucceeded(
     resource_type: 'transaction',
     resource_id: paymentIntent.id,
     status: 'success',
-    details: { amount, stripe_intent_id: paymentIntent.id },
+    details: {
+      amount,
+      stripe_intent_id: paymentIntent.id,
+      credited: credit.credited,
+      already_credited: credit.already_credited,
+    },
   })
 }
 

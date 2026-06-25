@@ -1,10 +1,19 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireActiveAccount } from '@/lib/api-guards'
 import { NextRequest, NextResponse } from 'next/server'
-import { createNotification, notifyAdmins } from '@/lib/notifications'
+import { createNotification, createServiceRoleClient, notifyAdmins } from '@/lib/notifications'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
+
+type TopUpCreditResult = {
+  credited: boolean
+  already_credited: boolean
+  transaction_id: string
+  reference_id: string
+  wallet_id: string
+  amount: number
+}
 
 /**
  * POST /api/payments/reconcile-session
@@ -63,7 +72,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceRoleClient() ?? (await createClient())
 
     // Idempotency: if a row already exists for this payment intent, do nothing
     const { data: existing } = await supabase
@@ -82,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     const { data: wallet, error: walletErr } = await supabase
       .from('wallets')
-      .select('balance, currency')
+      .select('id, user_id, currency, status')
       .eq('id', walletId)
       .single()
 
@@ -90,30 +99,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Wallet not found' }, { status: 404 })
     }
 
-    await supabase
-      .from('wallets')
-      .update({
-        balance: parseFloat(wallet.balance) + amount,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', walletId)
+    if (wallet.user_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
-    const referenceId = `TOPUP-${pi.id}`
+    if (wallet.status !== 'active') {
+      return NextResponse.json({ error: 'Wallet is not active' }, { status: 409 })
+    }
 
-    const { data: transaction } = await supabase.from('transactions').insert({
-      from_wallet_id: null,
-      to_wallet_id: walletId,
-      type: 'topup',
-      amount,
-      currency: wallet.currency ?? 'BWP',
-      status: 'completed',
-      stripe_payment_intent_id: pi.id,
-      reference_id: referenceId,
-      description: 'Wallet top-up via Stripe',
-      completed_at: new Date().toISOString(),
+    const { data: creditRows, error: creditError } = await supabase.rpc('fn_credit_stripe_topup', {
+      p_user_id: userId,
+      p_wallet_id: walletId,
+      p_payment_intent_id: pi.id,
+      p_amount: amount,
+      p_currency: wallet.currency ?? pi.currency?.toUpperCase() ?? 'BWP',
+      p_description: 'Wallet top-up via Stripe',
     })
-      .select('id')
-      .single()
+
+    const credit = (Array.isArray(creditRows) ? creditRows[0] : creditRows) as TopUpCreditResult | undefined
+
+    if (creditError || !credit) {
+      console.error('[stripe] Reconcile credit failed:', creditError)
+      return NextResponse.json({ error: 'Could not credit the wallet' }, { status: 500 })
+    }
 
     await createNotification(supabase, {
       user_id: userId,
@@ -122,8 +130,18 @@ export async function POST(request: NextRequest) {
       title: 'Top-up successful',
       message: `P${amount.toFixed(2)} has been added to your wallet`,
       link_url: `/dashboard/wallets/${walletId}`,
-      reference_id: transaction?.id ?? null,
+      reference_id: credit.transaction_id,
     })
+
+    if (credit.already_credited) {
+      return NextResponse.json({
+        credited: false,
+        already_credited: true,
+        amount,
+        reference_id: credit.reference_id,
+        wallet_id: walletId,
+      })
+    }
 
     await notifyAdmins(supabase, {
       type: 'transaction',
@@ -133,7 +151,7 @@ export async function POST(request: NextRequest) {
       link_url: '/admin',
     })
 
-    await supabase.from('audit_logs').insert({
+    const { error: auditError } = await supabase.from('audit_logs').insert({
       user_id: userId,
       action: 'wallet_topup_reconciled',
       resource_type: 'transaction',
@@ -141,11 +159,15 @@ export async function POST(request: NextRequest) {
       status: 'success',
       details: { amount, stripe_intent_id: pi.id, via: 'success_page' },
     })
+    if (auditError) {
+      console.error('[stripe] Reconcile audit log insert failed:', auditError)
+    }
 
     return NextResponse.json({
-      credited: true,
+      credited: credit.credited,
+      already_credited: credit.already_credited,
       amount,
-      reference_id: referenceId,
+      reference_id: credit.reference_id,
       wallet_id: walletId,
     })
   } catch (error: any) {
