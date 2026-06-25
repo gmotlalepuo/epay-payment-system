@@ -12,6 +12,7 @@ import { apiFetch } from '@/lib/api-client'
 
 interface QrCode {
   id: string
+  wallet_id: string
   token: string
   description: string
   amount: number
@@ -24,14 +25,29 @@ interface QrCode {
   created_at: string
 }
 
+interface Wallet {
+  id: string
+  wallet_number: string
+  name: string | null
+  currency: string
+  status: string
+}
+
+function walletLabel(wallet?: Wallet) {
+  if (!wallet) return 'Unknown wallet'
+  return wallet.name ? `${wallet.name} (${wallet.wallet_number})` : wallet.wallet_number
+}
+
 export default function QrCodesListPage() {
   const [qrCodes, setQrCodes] = useState<QrCode[]>([])
+  const [wallets, setWallets] = useState<Wallet[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [useFilter, setUseFilter] = useState('all')
+  const [walletFilter, setWalletFilter] = useState('all')
 
   useEffect(() => {
     void load()
@@ -41,10 +57,15 @@ export default function QrCodesListPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await apiFetch('/api/qr-codes')
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to load QR codes')
-      setQrCodes(data.qrCodes ?? [])
+      const [qrRes, walletRes] = await Promise.all([
+        apiFetch('/api/qr-codes'),
+        apiFetch('/api/wallets'),
+      ])
+      const [qrData, walletData] = await Promise.all([qrRes.json(), walletRes.json()])
+      if (!qrRes.ok) throw new Error(qrData.error ?? 'Failed to load QR codes')
+      if (!walletRes.ok) throw new Error(walletData.error ?? 'Failed to load wallets')
+      setQrCodes(qrData.qrCodes ?? [])
+      setWallets(walletData.wallets ?? [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error')
     } finally {
@@ -94,30 +115,43 @@ export default function QrCodesListPage() {
 
   const filteredQrCodes = useMemo(() => {
     const term = search.trim().toLowerCase()
+    const walletById = new Map(wallets.map((wallet) => [wallet.id, wallet]))
 
     return qrCodes.filter((q) => {
       const status = statusFor(q)
+      const wallet = walletById.get(q.wallet_id)
       const matchesSearch =
         !term ||
-        [q.description, q.token, q.currency, String(q.amount), String(q.paid_count)]
+        [
+          q.description,
+          q.token,
+          q.currency,
+          String(q.amount),
+          String(q.paid_count),
+          wallet?.name,
+          wallet?.wallet_number,
+        ]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(term))
 
       return (
         matchesSearch &&
+        (walletFilter === 'all' || q.wallet_id === walletFilter) &&
         (statusFilter === 'all' || status === statusFilter) &&
         (useFilter === 'all' ||
           (useFilter === 'single' && q.single_use) ||
           (useFilter === 'reusable' && !q.single_use))
       )
     })
-  }, [qrCodes, search, statusFilter, useFilter])
+  }, [qrCodes, search, statusFilter, useFilter, walletFilter, wallets])
 
   const { page, setPage, totalPages, pagedItems } = usePagedItems(
     filteredQrCodes,
     8,
-    `${search}|${statusFilter}|${useFilter}`,
+    `${search}|${statusFilter}|${useFilter}|${walletFilter}`,
   )
+
+  const walletById = useMemo(() => new Map(wallets.map((wallet) => [wallet.id, wallet])), [wallets])
 
   return (
     <div>
@@ -158,6 +192,18 @@ export default function QrCodesListPage() {
             searchPlaceholder="Search QR codes"
             filters={[
               {
+                label: 'Wallet',
+                value: walletFilter,
+                onChange: setWalletFilter,
+                options: [
+                  { label: 'All wallets', value: 'all' },
+                  ...wallets.map((wallet) => ({
+                    label: walletLabel(wallet),
+                    value: wallet.id,
+                  })),
+                ],
+              },
+              {
                 label: 'Status',
                 value: statusFilter,
                 onChange: setStatusFilter,
@@ -195,6 +241,7 @@ export default function QrCodesListPage() {
                 const exhausted = q.single_use && q.paid_count > 0
                 const payable = q.is_active && !expired && !exhausted
                 const payUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/pay/${q.token}`
+                const wallet = walletById.get(q.wallet_id)
 
                 return (
                   <Card key={q.id}>
@@ -205,6 +252,9 @@ export default function QrCodesListPage() {
                           <CardDescription>
                             P{Number(q.amount).toFixed(2)} {q.currency}
                           </CardDescription>
+                          <p className="mt-1 text-xs text-gray-500">
+                            Wallet: {walletLabel(wallet)}
+                          </p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           {payable ? (
@@ -223,7 +273,6 @@ export default function QrCodesListPage() {
                     <CardContent className="space-y-3">
                       {q.qr_image_url && (
                         <div className="flex justify-center bg-gray-50 rounded-md py-3">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={q.qr_image_url}
                             alt={`QR code for ${q.description}`}
@@ -237,6 +286,12 @@ export default function QrCodesListPage() {
                       <div className="text-xs text-gray-500 break-all">
                         <span className="font-medium">Pay link: </span>
                         {payUrl}
+                      </div>
+
+                      <div className="text-xs text-gray-500">
+                        <span className="font-medium">Wallet: </span>
+                        {walletLabel(wallet)}
+                        {wallet?.status && ` · ${wallet.status}`}
                       </div>
 
                       <div className="text-xs text-gray-500">
