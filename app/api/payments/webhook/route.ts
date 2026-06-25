@@ -66,7 +66,8 @@ async function handlePaymentIntentSucceeded(
     })
     .eq('id', walletId)
 
-  await supabase.from('transactions').insert({
+  const referenceId = `TOPUP-${paymentIntent.id}`
+  const { data: transaction } = await supabase.from('transactions').insert({
     from_wallet_id: null,
     to_wallet_id: walletId,
     type: 'topup',
@@ -74,10 +75,12 @@ async function handlePaymentIntentSucceeded(
     currency: wallet.currency ?? 'BWP',
     status: 'completed',
     stripe_payment_intent_id: paymentIntent.id,
-    reference_id: `TOPUP-${paymentIntent.id}`,
+    reference_id: referenceId,
     description: 'Wallet top-up via Stripe',
     completed_at: new Date().toISOString(),
   })
+    .select('id')
+    .single()
 
   await createNotification(supabase, {
     user_id: userId,
@@ -86,6 +89,7 @@ async function handlePaymentIntentSucceeded(
     title: 'Top-up successful',
     message: `P${amount.toFixed(2)} has been added to your wallet`,
     link_url: `/dashboard/wallets/${walletId}`,
+    reference_id: transaction?.id ?? null,
   })
 
   await notifyAdmins(supabase, {

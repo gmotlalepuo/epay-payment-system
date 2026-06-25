@@ -26,6 +26,65 @@ type GuestQrApplyResult =
       reason?: string
     }
 
+function isMissingGuestPayerColumn(error: any) {
+  const message = String(error?.message ?? '')
+  return (
+    error?.code === 'PGRST204' ||
+    /guest_payer_(name|email)/i.test(message) ||
+    /schema cache/i.test(message)
+  )
+}
+
+function guestPayerSelectColumns(includePayerDetails: boolean) {
+  return includePayerDetails
+    ? 'id, reference_id, amount, currency, guest_payer_name, guest_payer_email'
+    : 'id, reference_id, amount, currency'
+}
+
+function transactionInsertPayload({
+  receiverWalletId,
+  amount,
+  currency,
+  paymentIntentId,
+  referenceId,
+  description,
+  qrCodeId,
+  completedAt,
+  payerDetails,
+  includePayerDetails,
+}: {
+  receiverWalletId: string
+  amount: number
+  currency: string
+  paymentIntentId: string
+  referenceId: string
+  description: string
+  qrCodeId: string
+  completedAt: string
+  payerDetails: GuestQrPayerDetails
+  includePayerDetails: boolean
+}) {
+  return {
+    from_wallet_id: null,
+    to_wallet_id: receiverWalletId,
+    type: 'payment',
+    amount,
+    currency,
+    status: 'completed',
+    stripe_payment_intent_id: paymentIntentId,
+    reference_id: referenceId,
+    description,
+    qr_code_id: qrCodeId,
+    completed_at: completedAt,
+    ...(includePayerDetails
+      ? {
+          guest_payer_name: payerDetails.name ?? null,
+          guest_payer_email: payerDetails.email ?? null,
+        }
+      : {}),
+  }
+}
+
 async function ensureGuestQrReceiverNotification(
   supabase: SupabaseClient,
   payload: {
@@ -94,19 +153,38 @@ export async function applyGuestQrCardPayment(
     return { credited: false, reason: 'missing_metadata' }
   }
 
-  const { data: existing } = await supabase
+  let includePayerDetails = true
+  let { data: existing, error: existingError }: { data: any; error: any } = await supabase
     .from('transactions')
-    .select('id, reference_id, amount, currency, guest_payer_name, guest_payer_email')
+    .select(guestPayerSelectColumns(includePayerDetails))
     .eq('stripe_payment_intent_id', paymentIntent.id)
     .maybeSingle()
 
+  if (existingError && isMissingGuestPayerColumn(existingError)) {
+    includePayerDetails = false
+    const fallback: { data: any; error: any } = await supabase
+      .from('transactions')
+      .select(guestPayerSelectColumns(includePayerDetails))
+      .eq('stripe_payment_intent_id', paymentIntent.id)
+      .maybeSingle()
+    existing = fallback.data
+    existingError = fallback.error
+  }
+
+  if (existingError) {
+    console.error('[guest-qr-payment] Existing transaction lookup failed:', existingError)
+  }
+
   if (existing) {
-    if ((payerDetails.name || payerDetails.email) && (!existing.guest_payer_name || !existing.guest_payer_email)) {
+    const existingPayerName = 'guest_payer_name' in existing ? existing.guest_payer_name : null
+    const existingPayerEmail = 'guest_payer_email' in existing ? existing.guest_payer_email : null
+
+    if (includePayerDetails && (payerDetails.name || payerDetails.email) && (!existingPayerName || !existingPayerEmail)) {
       await supabase
         .from('transactions')
         .update({
-          guest_payer_name: existing.guest_payer_name ?? payerDetails.name ?? null,
-          guest_payer_email: existing.guest_payer_email ?? payerDetails.email ?? null,
+          guest_payer_name: existingPayerName ?? payerDetails.name ?? null,
+          guest_payer_email: existingPayerEmail ?? payerDetails.email ?? null,
         })
         .eq('id', existing.id)
     }
@@ -116,7 +194,7 @@ export async function applyGuestQrCardPayment(
       receiverUserId,
       amount: Number(existing.amount ?? amount),
       currency: existing.currency ?? paymentIntent.currency.toUpperCase(),
-      payerName: existing.guest_payer_name ?? payerDetails.name,
+      payerName: existingPayerName ?? payerDetails.name,
     })
 
     return {
@@ -163,41 +241,67 @@ export async function applyGuestQrCardPayment(
   const description = qr.description ? `Card payment: ${qr.description}` : 'Guest card QR payment'
   const referenceId = `CARDQR-${paymentIntent.id}`
 
-  const { data: transaction, error: transactionError } = await supabase
+  let { data: transaction, error: transactionError } = await supabase
     .from('transactions')
-    .insert({
-      from_wallet_id: null,
-      to_wallet_id: receiverWalletId,
-      type: 'payment',
-      amount,
-      currency,
-      status: 'completed',
-      stripe_payment_intent_id: paymentIntent.id,
-      reference_id: referenceId,
-      description,
-      qr_code_id: qrCodeId,
-      guest_payer_name: payerDetails.name ?? null,
-      guest_payer_email: payerDetails.email ?? null,
-      completed_at: completedAt,
-    })
+    .insert(
+      transactionInsertPayload({
+        receiverWalletId,
+        amount,
+        currency,
+        paymentIntentId: paymentIntent.id,
+        referenceId,
+        description,
+        qrCodeId,
+        completedAt,
+        payerDetails,
+        includePayerDetails,
+      }),
+    )
     .select('id, reference_id')
     .single()
 
+  if (transactionError && includePayerDetails && isMissingGuestPayerColumn(transactionError)) {
+    includePayerDetails = false
+    const fallback = await supabase
+      .from('transactions')
+      .insert(
+        transactionInsertPayload({
+          receiverWalletId,
+          amount,
+          currency,
+          paymentIntentId: paymentIntent.id,
+          referenceId,
+          description,
+          qrCodeId,
+          completedAt,
+          payerDetails,
+          includePayerDetails,
+        }),
+      )
+      .select('id, reference_id')
+      .single()
+    transaction = fallback.data
+    transactionError = fallback.error
+  }
+
   if (transactionError || !transaction) {
     if (transactionError?.code === '23505') {
-      const { data: alreadyCredited } = await supabase
+      const { data: alreadyCredited }: { data: any } = await supabase
         .from('transactions')
-        .select('id, reference_id, amount, currency, guest_payer_name, guest_payer_email')
+        .select(guestPayerSelectColumns(includePayerDetails))
         .eq('stripe_payment_intent_id', paymentIntent.id)
         .maybeSingle()
 
       if (alreadyCredited?.id) {
-        if ((payerDetails.name || payerDetails.email) && (!alreadyCredited.guest_payer_name || !alreadyCredited.guest_payer_email)) {
+        const alreadyPayerName = 'guest_payer_name' in alreadyCredited ? alreadyCredited.guest_payer_name : null
+        const alreadyPayerEmail = 'guest_payer_email' in alreadyCredited ? alreadyCredited.guest_payer_email : null
+
+        if (includePayerDetails && (payerDetails.name || payerDetails.email) && (!alreadyPayerName || !alreadyPayerEmail)) {
           await supabase
             .from('transactions')
             .update({
-              guest_payer_name: alreadyCredited.guest_payer_name ?? payerDetails.name ?? null,
-              guest_payer_email: alreadyCredited.guest_payer_email ?? payerDetails.email ?? null,
+              guest_payer_name: alreadyPayerName ?? payerDetails.name ?? null,
+              guest_payer_email: alreadyPayerEmail ?? payerDetails.email ?? null,
             })
             .eq('id', alreadyCredited.id)
         }
@@ -207,7 +311,7 @@ export async function applyGuestQrCardPayment(
           receiverUserId,
           amount: Number(alreadyCredited.amount ?? amount),
           currency: alreadyCredited.currency ?? currency,
-          payerName: alreadyCredited.guest_payer_name ?? payerDetails.name,
+          payerName: alreadyPayerName ?? payerDetails.name,
         })
       }
 

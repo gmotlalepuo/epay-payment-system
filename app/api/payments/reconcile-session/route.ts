@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     const referenceId = `TOPUP-${pi.id}`
 
-    await supabase.from('transactions').insert({
+    const { data: transaction } = await supabase.from('transactions').insert({
       from_wallet_id: null,
       to_wallet_id: walletId,
       type: 'topup',
@@ -112,6 +112,8 @@ export async function POST(request: NextRequest) {
       description: 'Wallet top-up via Stripe',
       completed_at: new Date().toISOString(),
     })
+      .select('id')
+      .single()
 
     await createNotification(supabase, {
       user_id: userId,
@@ -120,6 +122,7 @@ export async function POST(request: NextRequest) {
       title: 'Top-up successful',
       message: `P${amount.toFixed(2)} has been added to your wallet`,
       link_url: `/dashboard/wallets/${walletId}`,
+      reference_id: transaction?.id ?? null,
     })
 
     await notifyAdmins(supabase, {

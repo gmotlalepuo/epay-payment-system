@@ -46,12 +46,28 @@ export async function createNotification(
   payload: NotificationPayload,
 ) {
   const client = createServiceRoleClient() ?? supabase
+  const category = payload.category ?? categoryForType(payload.type)
+
+  if (payload.reference_id) {
+    const { data: existing, error: lookupError } = await client
+      .from('notifications')
+      .select('id')
+      .eq('user_id', payload.user_id)
+      .eq('reference_id', payload.reference_id)
+      .eq('title', payload.title)
+      .maybeSingle()
+
+    if (lookupError) {
+      console.error('[notifications] dedupe lookup error:', lookupError.message || lookupError, payload)
+    }
+    if (existing) return null
+  }
 
   const { error } = await client.from('notifications').insert({
     user_id: payload.user_id,
     title: payload.title,
     message: payload.message,
-    category: payload.category ?? categoryForType(payload.type),
+    category,
     type: payload.type,
     link_url: payload.link_url ?? null,
     reference_id: payload.reference_id ?? null,

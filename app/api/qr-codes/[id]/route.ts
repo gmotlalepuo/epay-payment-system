@@ -1,4 +1,5 @@
 import { requireActiveAccount } from '@/lib/api-guards'
+import { createNotification } from '@/lib/notifications'
 import { NextRequest, NextResponse } from 'next/server'
 
 // PATCH /api/qr-codes/[id] — update is_active (deactivate / reactivate)
@@ -16,6 +17,12 @@ export async function PATCH(
     const isActive = Boolean(body.is_active)
 
     // RLS already restricts updates to wallets the user owns
+    const { data: existing } = await supabase
+      .from('qr_codes')
+      .select('id, description, is_active')
+      .eq('id', id)
+      .maybeSingle()
+
     const { data, error } = await supabase
       .from('qr_codes')
       .update({ is_active: isActive, updated_at: new Date().toISOString() })
@@ -37,6 +44,18 @@ export async function PATCH(
       resource_id: id,
       status: 'success',
     })
+
+    if (existing && existing.is_active !== isActive) {
+      await createNotification(supabase, {
+        user_id: user.id,
+        type: 'wallet',
+        category: 'wallet',
+        title: isActive ? 'QR request activated' : 'QR request deactivated',
+        message: `${existing.description ?? 'Your QR request'} is now ${isActive ? 'active' : 'inactive'}.`,
+        link_url: '/dashboard/qr-codes',
+        reference_id: id,
+      })
+    }
 
     return NextResponse.json({ qrCode: data })
   } catch (error) {
