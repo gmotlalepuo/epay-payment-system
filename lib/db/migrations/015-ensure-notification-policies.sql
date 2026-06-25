@@ -3,6 +3,24 @@
 
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
+ALTER TABLE public.notifications
+  ADD COLUMN IF NOT EXISTS category TEXT,
+  ADD COLUMN IF NOT EXISTS link_url TEXT,
+  ADD COLUMN IF NOT EXISTS reference_id UUID,
+  ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS read_at TIMESTAMP WITH TIME ZONE,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+UPDATE public.notifications
+SET category = CASE
+  WHEN type IN ('transaction', 'success') THEN 'payment'
+  WHEN type IN ('security', 'error', 'warning') THEN 'security'
+  WHEN type = 'wallet' THEN 'wallet'
+  WHEN type = 'complaint' THEN 'complaint'
+  ELSE 'system'
+END
+WHERE category IS NULL;
+
 ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
 
 -- Older notification rows may have UI-status types such as info/success/error.
