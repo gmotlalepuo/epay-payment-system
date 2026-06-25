@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { formatTimestamp, ListPagination, ListToolbar, usePagedItems } from '@/components/list-tools'
+import { apiFetch } from '@/lib/api-client'
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<any[]>([])
@@ -32,8 +33,8 @@ export default function TransactionsPage() {
         }
 
         const [walletsRes, txnRes] = await Promise.all([
-          fetch('/api/wallets'),
-          fetch('/api/transfers'),
+          apiFetch('/api/wallets'),
+          apiFetch('/api/transfers'),
         ])
         if (walletsRes.ok) {
           const wd = await walletsRes.json()

@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,8 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PaymentReceipt } from '@/components/payment-receipt'
 import { BrandLogo } from '@/components/brand-logo'
+import { apiFetch } from '@/lib/api-client'
+import { validateWalletPaymentAmount, walletLabel } from '@/lib/payment-validation'
 
 interface ResolvedQr {
   id: string
@@ -39,8 +41,7 @@ type ResolveResponse = { qr: ResolvedQr; payable: boolean; reason: string | null
 
 export default function PayLanding() {
   const params = useParams<{ token: string }>()
-  const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [resolving, setResolving] = useState(true)
   const [qr, setQr] = useState<ResolvedQr | null>(null)
@@ -58,6 +59,8 @@ export default function PayLanding() {
   const [payError, setPayError] = useState<string | null>(null)
   const [cardPayError, setCardPayError] = useState<string | null>(null)
   const [receipt, setReceipt] = useState<{ reference_id: string; paid_at: string } | null>(null)
+  const selectedWallet = wallets.find((wallet) => wallet.id === fromWalletId) ?? null
+  const walletPaymentError = qr && selectedWallet ? validateWalletPaymentAmount(qr.amount, selectedWallet) : null
 
   // Resolve the QR (public endpoint)
   useEffect(() => {
@@ -96,7 +99,7 @@ export default function PayLanding() {
       setAuthedUserId(data.user?.id ?? null)
       setAuthChecked(true)
       if (data.user) {
-        const res = await fetch('/api/wallets')
+        const res = await apiFetch('/api/wallets')
         if (res.ok) {
           const j = await res.json()
           const active = (j.wallets ?? []).filter((w: Wallet) => w.status === 'active')
@@ -116,13 +119,18 @@ export default function PayLanding() {
     setPayError(null)
     setPaying(true)
     try {
-      const res = await fetch('/api/transfers', {
+      if (walletPaymentError) {
+        setPayError(walletPaymentError)
+        return
+      }
+
+      const res = await apiFetch('/api/transfers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from_wallet_id: fromWalletId,
           qr_code_id: qr.id,
-          idempotency_key: `qr-${qr.id}-${fromWalletId}-${Date.now()}`,
+          idempotency_key: crypto.randomUUID(),
         }),
       })
       const data = await res.json()
@@ -333,10 +341,11 @@ export default function PayLanding() {
                 <option value="">Select a wallet</option>
                 {wallets.map((w) => (
                   <option key={w.id} value={w.id}>
-                    {w.name ? `${w.name} — ` : ''}{w.wallet_number} — P{w.balance.toFixed(2)}
+                    {walletLabel(w)}
                   </option>
                 ))}
               </select>
+              {walletPaymentError && <p className="text-sm text-red-600">{walletPaymentError}</p>}
             </div>
           )}
 
@@ -354,7 +363,7 @@ export default function PayLanding() {
 
           <Button
             onClick={handlePay}
-            disabled={!fromWalletId || paying || wallets.length === 0}
+            disabled={!fromWalletId || paying || wallets.length === 0 || Boolean(walletPaymentError)}
             className="w-full"
             size="lg"
           >

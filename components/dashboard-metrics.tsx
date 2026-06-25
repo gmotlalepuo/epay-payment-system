@@ -16,6 +16,7 @@ import {
   BarChart,
 } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { apiFetch } from '@/lib/api-client'
 
 interface Wallet {
   id: string
@@ -73,9 +74,9 @@ export function DashboardMetrics() {
     async function load() {
       try {
         const [w, t, q] = await Promise.all([
-          fetch('/api/wallets').then((r) => (r.ok ? r.json() : { wallets: [] })),
-          fetch('/api/transfers').then((r) => (r.ok ? r.json() : { transactions: [] })),
-          fetch('/api/qr-codes').then((r) => (r.ok ? r.json() : { qrCodes: [] })),
+          apiFetch('/api/wallets').then((r) => (r.ok ? r.json() : { wallets: [] })),
+          apiFetch('/api/transfers').then((r) => (r.ok ? r.json() : { transactions: [] })),
+          apiFetch('/api/qr-codes').then((r) => (r.ok ? r.json() : { qrCodes: [] })),
         ])
         setWallets(w.wallets ?? [])
         setTransactions(t.transactions ?? [])

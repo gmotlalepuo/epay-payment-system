@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getCurrentUser } from '@/lib/auth'
+import { requireActiveAccount } from '@/lib/api-guards'
 import { NextRequest, NextResponse } from 'next/server'
 import { createNotification, notifyAdmins } from '@/lib/notifications'
 import Stripe from 'stripe'
@@ -21,10 +21,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { auth, response } = await requireActiveAccount(request)
+    if (response) return response
+    const { user } = auth
 
     const { session_id } = await request.json()
     if (!session_id || typeof session_id !== 'string') {

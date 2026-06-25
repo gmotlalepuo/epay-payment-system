@@ -1,4 +1,4 @@
-import { getAuthenticatedContext } from '@/lib/auth'
+import { requireActiveAccount } from '@/lib/api-guards'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
@@ -17,10 +17,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '')
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthenticatedContext(request)
-    if (!auth) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { auth, response } = await requireActiveAccount(request)
+    if (response) return response
     const { supabase, user } = auth
 
     const body = await request.json()
@@ -61,6 +59,9 @@ export async function POST(request: NextRequest) {
     }
     if (wallet.user_id !== user.id) {
       return NextResponse.json({ error: 'Wallet does not belong to user' }, { status: 403 })
+    }
+    if (wallet.status !== 'active') {
+      return NextResponse.json({ error: 'Wallet is not active' }, { status: 400 })
     }
 
     const origin = process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin

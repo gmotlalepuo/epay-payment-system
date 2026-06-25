@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatTimestamp, ListPagination, ListToolbar, usePagedItems } from '@/components/list-tools'
+import { apiFetch } from '@/lib/api-client'
 
 interface Notification {
   id: string
@@ -60,7 +61,7 @@ export default function NotificationsPage() {
   async function load() {
     setLoading(true)
     try {
-      const r = await fetch('/api/notifications')
+      const r = await apiFetch('/api/notifications')
       if (r.ok) {
         const d = await r.json()
         setItems(d.notifications ?? [])
@@ -72,7 +73,7 @@ export default function NotificationsPage() {
 
   async function markRead(ids: string[]) {
     if (ids.length === 0) return
-    await fetch('/api/notifications', {
+    await apiFetch('/api/notifications', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ notificationIds: ids, isRead: true }),

@@ -9,6 +9,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { BrandLogo } from '@/components/brand-logo'
 
@@ -67,6 +68,7 @@ function ServicesMenu({ mobile }: { mobile?: boolean }) {
 export function DashboardShell({ children, email, onLogout }: { children: React.ReactNode; email: string; onLogout: () => void | Promise<void> }) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [confirmLogout, setConfirmLogout] = useState(false)
   const initials = email.slice(0, 2).toUpperCase()
 
   return (
@@ -83,7 +85,7 @@ export function DashboardShell({ children, email, onLogout }: { children: React.
             <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="ghost" className="h-11 gap-2 rounded-xl px-2"><Avatar className="size-8 border border-primary/25"><AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">{initials}</AvatarFallback></Avatar><span className="hidden max-w-32 truncate text-sm xl:block">{email}</span></Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64"><DropdownMenuLabel><span className="block text-xs font-normal text-muted-foreground">Signed in as</span><span className="block truncate">{email}</span></DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem asChild><Link href="/dashboard/settings"><Settings />Settings</Link></DropdownMenuItem><DropdownMenuItem asChild><Link href="/dashboard"><UserRound />Account overview</Link></DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={onLogout} className="text-destructive focus:text-destructive"><LogOut />Sign out</DropdownMenuItem></DropdownMenuContent>
+              <DropdownMenuContent align="end" className="w-64"><DropdownMenuLabel><span className="block text-xs font-normal text-muted-foreground">Signed in as</span><span className="block truncate">{email}</span></DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem asChild><Link href="/dashboard/settings"><Settings />Settings</Link></DropdownMenuItem><DropdownMenuItem asChild><Link href="/dashboard"><UserRound />Account overview</Link></DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onSelect={(event) => { event.preventDefault(); setConfirmLogout(true) }} className="text-destructive focus:text-destructive"><LogOut />Sign out</DropdownMenuItem></DropdownMenuContent>
             </DropdownMenu>
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen((open) => !open)} aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}>{mobileOpen ? <X /> : <Menu />}</Button>
           </div>
@@ -91,6 +93,20 @@ export function DashboardShell({ children, email, onLogout }: { children: React.
         {mobileOpen && <div className="animate-in border-t bg-background/95 duration-200 slide-in-from-top-2 lg:hidden"><Navigation pathname={pathname} mobile onNavigate={() => setMobileOpen(false)} /></div>}
       </header>
       <main id="main-content" className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8"><div key={pathname} className="page-enter">{children}</div></main>
+      <AlertDialog open={confirmLogout} onOpenChange={setConfirmLogout}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will need to sign in again before using wallet, transfer, QR, top-up, settings, or profile pages.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay signed in</AlertDialogCancel>
+            <AlertDialogAction onClick={onLogout}>Sign out</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

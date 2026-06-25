@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { apiFetch } from '@/lib/api-client'
 
 export default function CreateWalletPage() {
   const router = useRouter()
@@ -25,7 +26,7 @@ export default function CreateWalletPage() {
     setSuccess(null)
 
     try {
-      const response = await fetch('/api/wallets', {
+      const response = await apiFetch('/api/wallets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim() || undefined, currency }),

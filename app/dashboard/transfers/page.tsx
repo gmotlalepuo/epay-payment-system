@@ -1,14 +1,36 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { apiFetch } from '@/lib/api-client'
+import { parsePaymentAmount, validateWalletPaymentAmount, walletLabel } from '@/lib/payment-validation'
+
+type Wallet = {
+  id: string
+  name: string | null
+  wallet_number: string
+  balance: number
+  currency: string
+  status: string
+}
+
+type Recipient = {
+  wallet_number: string
+  wallet_name: string | null
+  currency: string
+  wallet_status: string
+  owner_name: string
+  owner_status: string
+  payable: boolean
+}
 
 export default function TransfersPage() {
   const router = useRouter()
@@ -17,7 +39,10 @@ export default function TransfersPage() {
   const [toWalletNumber, setToWalletNumber] = useState('')
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
-  const [wallets, setWallets] = useState<any[]>([])
+  const [wallets, setWallets] = useState<Wallet[]>([])
+  const [recipient, setRecipient] = useState<Recipient | null>(null)
+  const [verifyingRecipient, setVerifyingRecipient] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -25,52 +50,103 @@ export default function TransfersPage() {
   useEffect(() => {
     async function loadWallets() {
       try {
-        const response = await fetch('/api/wallets')
+        const response = await apiFetch('/api/wallets')
         if (response.ok) {
           const data = await response.json()
-          setWallets(data.wallets || [])
+          setWallets((data.wallets || []).filter((wallet: Wallet) => wallet.status === 'active'))
         }
       } catch (err) {
-        console.error('[v0] Error loading wallets:', err)
+        console.error('[transfers] Error loading wallets:', err)
       }
     }
-    loadWallets()
+
+    void loadWallets()
   }, [])
 
-  const handleTransfer = async (e: React.FormEvent) => {
+  const selectedWallet = wallets.find((wallet) => wallet.id === fromWalletId) ?? null
+  const amountError = amount ? validateWalletPaymentAmount(amount, selectedWallet) : null
+  const canReview = Boolean(fromWalletId && toWalletNumber.trim() && amount) && !amountError && !isLoading
+
+  async function verifyRecipient() {
+    setRecipient(null)
+    setVerifyingRecipient(true)
+
+    try {
+      const response = await apiFetch(
+        `/api/wallets/lookup?wallet_number=${encodeURIComponent(toWalletNumber.trim())}`,
+      )
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error ?? 'Could not verify recipient')
+      setRecipient(data.recipient)
+      return data.recipient as Recipient
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not verify recipient'
+      setError(msg)
+      toast.error('Recipient check failed', { description: msg })
+      return null
+    } finally {
+      setVerifyingRecipient(false)
+    }
+  }
+
+  async function handleReview(e: React.FormEvent) {
     e.preventDefault()
+    setError(null)
+    setSuccess(null)
+
+    const validation = validateWalletPaymentAmount(amount, selectedWallet)
+    if (validation) {
+      setError(validation)
+      return
+    }
+
+    const verified = await verifyRecipient()
+    if (!verified) return
+    if (!verified.payable) {
+      setError('The recipient account or wallet is not active.')
+      return
+    }
+
+    setReviewOpen(true)
+  }
+
+  async function handleTransfer() {
     setIsLoading(true)
     setError(null)
     setSuccess(null)
 
     try {
-      const response = await fetch('/api/transfers', {
+      const response = await apiFetch('/api/transfers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from_wallet_id: fromWalletId,
-          to_wallet_number: toWalletNumber,
-          amount: parseFloat(amount),
+          to_wallet_number: toWalletNumber.trim(),
+          amount: parsePaymentAmount(amount),
           description,
+          idempotency_key: crypto.randomUUID(),
         }),
       })
 
-      if (response.ok) {
-        setSuccess('Transfer initiated successfully!')
-        toast.success('Transfer sent', {
-          description: `P${parseFloat(amount).toFixed(2)} to ${toWalletNumber}`,
-        })
-        setFromWalletId('')
-        setToWalletNumber('')
-        setAmount('')
-        setDescription('')
-        setTimeout(() => router.push('/dashboard/transactions'), 1500)
-      } else {
-        const data = await response.json()
+      const data = await response.json()
+      if (!response.ok) {
         const msg = data.error || 'Transfer failed'
         setError(msg)
         toast.error('Transfer failed', { description: msg })
+        return
       }
+
+      setSuccess(`Transfer sent. Reference: ${data.reference_id}`)
+      toast.success('Transfer sent', {
+        description: `P${(parsePaymentAmount(amount) ?? 0).toFixed(2)} to ${recipient?.owner_name ?? toWalletNumber}`,
+      })
+      setReviewOpen(false)
+      setFromWalletId('')
+      setToWalletNumber('')
+      setAmount('')
+      setDescription('')
+      setRecipient(null)
+      setTimeout(() => router.push('/dashboard/transactions'), 1500)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'An error occurred'
       setError(msg)
@@ -81,20 +157,19 @@ export default function TransfersPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 max-w-2xl">
+    <div className="container mx-auto max-w-2xl py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold">Send Money</h1>
-        <p className="text-gray-600 mt-2">Transfer funds to another wallet instantly</p>
+        <p className="mt-2 text-muted-foreground">Transfer funds to another active wallet instantly.</p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>New Transfer</CardTitle>
-          <CardDescription>Send money to another wallet by their wallet number</CardDescription>
+          <CardDescription>Verify the recipient and review the payment before sending.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleTransfer} className="space-y-6">
-            {/* From Wallet */}
+          <form onSubmit={handleReview} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="from-wallet">From Wallet</Label>
               <select
@@ -107,53 +182,50 @@ export default function TransfersPage() {
                 <option value="">Select a wallet</option>
                 {wallets.map((wallet) => (
                   <option key={wallet.id} value={wallet.id}>
-                    {wallet.name ? `${wallet.name} — ` : ''}{wallet.wallet_number} — P{wallet.balance.toFixed(2)}
+                    {walletLabel(wallet)}
                   </option>
                 ))}
               </select>
               {wallets.length === 0 && (
-                <p className="text-sm text-red-600">
-                  You need to create a wallet first
-                </p>
+                <p className="text-sm text-red-600">You need an active wallet before you can send money.</p>
               )}
             </div>
 
-            {/* To Wallet Number */}
             <div className="space-y-2">
-              <Label htmlFor="to-wallet">To Wallet Number</Label>
+              <Label htmlFor="to-wallet">Recipient wallet number</Label>
               <Input
                 id="to-wallet"
-                placeholder="Enter recipient&apos;s wallet number"
+                placeholder="Enter recipient wallet number"
                 value={toWalletNumber}
-                onChange={(e) => setToWalletNumber(e.target.value)}
+                onChange={(e) => {
+                  setToWalletNumber(e.target.value)
+                  setRecipient(null)
+                }}
                 required
               />
-              <p className="text-xs text-gray-500">
-                Ask the recipient for their wallet number
-              </p>
+              <p className="text-xs text-muted-foreground">We will verify the recipient before you confirm.</p>
             </div>
 
-            {/* Amount */}
             <div className="space-y-2">
               <Label htmlFor="amount">Amount (BWP)</Label>
               <div className="flex gap-2">
-                <span className="flex items-center text-gray-600">P</span>
+                <span className="flex items-center text-muted-foreground">P</span>
                 <Input
                   id="amount"
                   type="number"
                   placeholder="0.00"
                   step="0.01"
-                  min="0"
+                  min="0.01"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   required
                 />
               </div>
+              {amountError && <p className="text-sm text-red-600">{amountError}</p>}
             </div>
 
-            {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
+              <Label htmlFor="description">Description (optional)</Label>
               <Input
                 id="description"
                 placeholder="What is this transfer for?"
@@ -162,46 +234,73 @@ export default function TransfersPage() {
               />
             </div>
 
-            {/* Error Message */}
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-700">
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                 {error}
               </div>
             )}
 
-            {/* Success Message */}
             {success && (
-              <div className="bg-green-50 border border-green-200 rounded p-3 text-sm text-green-700">
+              <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
                 {success}
               </div>
             )}
 
-            {/* Submit Button */}
-            <Button type="submit" className="w-full" disabled={isLoading || wallets.length === 0}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isLoading ? 'Processing…' : 'Send Money'}
+            <Button type="submit" className="w-full" disabled={!canReview || wallets.length === 0 || verifyingRecipient}>
+              {verifyingRecipient && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {verifyingRecipient ? 'Checking recipient...' : 'Review transfer'}
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      {/* Info Card */}
-      <Card className="mt-6 bg-blue-50 border-blue-200">
+      <Card className="mt-6 border-blue-200 bg-blue-50">
         <CardHeader>
           <CardTitle className="text-lg">Transfer Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-blue-900">
-          <p>✓ Transfers are instant and irreversible</p>
-          <p>✓ Both wallets must be active</p>
-          <p>✓ You cannot transfer more than your available balance</p>
-          <p>✓ Keep your wallet number private and share only with trusted people</p>
+          <p>Transfers are instant and irreversible.</p>
+          <p>Both wallets must be active.</p>
+          <p>You cannot transfer more than your available balance.</p>
         </CardContent>
       </Card>
 
-      {/* Back Button */}
-      <Button asChild variant="outline" className="w-full mt-6">
-        <Link href="/dashboard">← Back to Dashboard</Link>
+      <Button asChild variant="outline" className="mt-6 w-full">
+        <Link href="/dashboard">Back to Dashboard</Link>
       </Button>
+
+      <AlertDialog open={reviewOpen} onOpenChange={setReviewOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm transfer</AlertDialogTitle>
+            <AlertDialogDescription>
+              Check the recipient and amount before sending. This action cannot be reversed here.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 rounded-lg border bg-muted/40 p-4 text-sm">
+            <p>
+              <span className="font-medium">From:</span> {selectedWallet ? walletLabel(selectedWallet) : 'Selected wallet'}
+            </p>
+            <p>
+              <span className="font-medium">Recipient:</span> {recipient?.owner_name} ({recipient?.wallet_number})
+            </p>
+            <p>
+              <span className="font-medium">Amount:</span> P{(parsePaymentAmount(amount) ?? 0).toFixed(2)}
+            </p>
+            {description && (
+              <p>
+                <span className="font-medium">Description:</span> {description}
+              </p>
+            )}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleTransfer} disabled={isLoading}>
+              {isLoading ? 'Sending...' : 'Confirm and send'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

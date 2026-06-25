@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
+import { apiFetch } from '@/lib/api-client'
 
 interface Notification {
   id: string
@@ -90,7 +91,7 @@ export function NotificationBell() {
 
   async function load() {
     try {
-      const r = await fetch('/api/notifications')
+      const r = await apiFetch('/api/notifications')
       if (!r.ok) return
       const d = await r.json()
       setItems(d.notifications ?? [])
@@ -105,7 +106,7 @@ export function NotificationBell() {
   async function markRead(ids: string[]) {
     if (ids.length === 0) return
     try {
-      await fetch('/api/notifications', {
+      await apiFetch('/api/notifications', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ notificationIds: ids, isRead: true }),

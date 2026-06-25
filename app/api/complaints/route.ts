@@ -1,14 +1,13 @@
 import { getAuthenticatedContext } from '@/lib/auth'
+import { requireActiveAccount } from '@/lib/api-guards'
 import { createNotification, notifyAdmins } from '@/lib/notifications'
 import { NextRequest, NextResponse } from 'next/server'
 
 // POST /api/complaints - Create a new complaint
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthenticatedContext(request)
-    if (!auth) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { auth, response } = await requireActiveAccount(request)
+    if (response) return response
     const { supabase, user } = auth
 
     const { complaintType, title, description, transactionId, attachmentUrls } = await request.json()

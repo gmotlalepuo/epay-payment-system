@@ -9,6 +9,26 @@ import { useRouter } from 'next/navigation'
 import { DashboardMetrics } from '@/components/dashboard-metrics'
 import { ListPagination, ListToolbar, usePagedItems } from '@/components/list-tools'
 import { ArrowLeftRight, Bell, CircleHelp, CreditCard, Lightbulb, QrCode, ScanLine, Settings, WalletCards } from 'lucide-react'
+import { apiFetch } from '@/lib/api-client'
+
+const WALLET_PAGE_SIZE = 3
+
+function walletStatusClass(status: string) {
+  switch (status) {
+    case 'active':
+      return 'border-emerald-300 bg-emerald-50 text-emerald-800 ring-emerald-200'
+    case 'frozen':
+      return 'border-amber-300 bg-amber-50 text-amber-800 ring-amber-200'
+    case 'closed':
+      return 'border-slate-300 bg-slate-100 text-slate-700 ring-slate-200'
+    default:
+      return 'border-red-300 bg-red-50 text-red-800 ring-red-200'
+  }
+}
+
+function walletStatusLabel(status: string) {
+  return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown'
+}
 
 export default function DashboardHome() {
   const [user, setUser] = useState<any>(null)
@@ -35,7 +55,7 @@ export default function DashboardHome() {
         setUser(authUser)
 
         // Fetch wallets
-        const response = await fetch('/api/wallets')
+        const response = await apiFetch('/api/wallets')
         if (response.ok) {
           const data = await response.json()
           setWallets(data.wallets || [])
@@ -70,7 +90,7 @@ export default function DashboardHome() {
     })
   }, [wallets, walletSearch, walletStatus])
 
-  const walletPage = usePagedItems(filteredWallets, 6, `${walletSearch}|${walletStatus}`)
+  const walletPage = usePagedItems(filteredWallets, WALLET_PAGE_SIZE, `${walletSearch}|${walletStatus}`)
 
   if (loading) {
     return (
@@ -122,8 +142,8 @@ export default function DashboardHome() {
                   options: [
                     { label: 'All', value: 'all' },
                     { label: 'Active', value: 'active' },
-                    { label: 'Inactive', value: 'inactive' },
-                    { label: 'Suspended', value: 'suspended' },
+                    { label: 'Frozen', value: 'frozen' },
+                    { label: 'Closed', value: 'closed' },
                   ],
                 },
               ]}
@@ -146,8 +166,9 @@ export default function DashboardHome() {
                     {wallet.wallet_number}
                   </p>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-800 text-xs font-medium">
-                  {wallet.status}
+                <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wide ring-1 ${walletStatusClass(wallet.status)}`}>
+                  <span className="size-2 rounded-full bg-current" />
+                  {walletStatusLabel(wallet.status)}
                 </span>
               </div>
               <p className="text-2xl font-bold mt-4">P{wallet.balance.toFixed(2)}</p>
@@ -176,7 +197,7 @@ export default function DashboardHome() {
               page={walletPage.page}
               totalPages={walletPage.totalPages}
               totalItems={filteredWallets.length}
-              pageSize={6}
+              pageSize={WALLET_PAGE_SIZE}
               onPageChange={walletPage.setPage}
             />
           </div>

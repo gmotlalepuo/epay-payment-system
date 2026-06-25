@@ -4,10 +4,21 @@ import {
   type SupabaseClient,
   type User,
 } from '@supabase/supabase-js'
+import {
+  accountStatusMessage,
+  isRestrictedAccountStatus,
+  type AccountStatus,
+} from '@/lib/account-status'
 
 export type AuthContext = {
   supabase: SupabaseClient
   user: User
+  profile: {
+    id: string
+    email: string
+    role: string
+    status: AccountStatus
+  } | null
 }
 
 function getBearerToken(request?: Request) {
@@ -60,9 +71,13 @@ export async function getAuthenticatedContext(request?: Request): Promise<AuthCo
 
     if (error || !user) return null
 
+    const scopedClient = createJwtScopedClient(bearerToken)
+    const profile = await getProfileForUser(scopedClient, user.id)
+
     return {
-      supabase: createJwtScopedClient(bearerToken),
+      supabase: scopedClient,
       user,
+      profile,
     }
   }
 
@@ -74,7 +89,24 @@ export async function getAuthenticatedContext(request?: Request): Promise<AuthCo
 
   if (error || !user) return null
 
-  return { supabase, user }
+  const profile = await getProfileForUser(supabase, user.id)
+
+  return { supabase, user, profile }
+}
+
+async function getProfileForUser(supabase: SupabaseClient, userId: string) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, email, role, status')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) {
+    console.error('Error fetching authenticated user profile:', error)
+    return null
+  }
+
+  return data as AuthContext['profile']
 }
 
 export async function getCurrentUser(request?: Request) {
@@ -86,7 +118,10 @@ export async function getUserRole(request?: Request) {
   const auth = await getAuthenticatedContext(request)
   if (!auth) return null
 
-  const { supabase, user } = auth
+  const { supabase, user, profile } = auth
+  if (isRestrictedAccountStatus(profile?.status)) return null
+
+  if (profile?.role) return profile.role
 
   const { data, error } = await supabase
     .from('users')
@@ -109,9 +144,15 @@ export async function isAdmin() {
 
 export function requireAuth(requiredRole?: string) {
   return async (request: Request) => {
-    const user = await getCurrentUser(request)
-    if (!user) {
+    const auth = await getAuthenticatedContext(request)
+    if (!auth) {
       return new Response('Unauthorized', { status: 401 })
+    }
+
+    if (isRestrictedAccountStatus(auth.profile?.status)) {
+      return new Response(accountStatusMessage(auth.profile?.status) ?? 'Account restricted', {
+        status: 403,
+      })
     }
 
     if (requiredRole) {

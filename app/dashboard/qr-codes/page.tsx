@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatTimestamp, ListPagination, ListToolbar, usePagedItems } from '@/components/list-tools'
+import { apiFetch } from '@/lib/api-client'
 
 interface QrCode {
   id: string
@@ -40,7 +41,7 @@ export default function QrCodesListPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/qr-codes')
+      const res = await apiFetch('/api/qr-codes')
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to load QR codes')
       setQrCodes(data.qrCodes ?? [])
@@ -54,7 +55,7 @@ export default function QrCodesListPage() {
   async function toggle(id: string, isActive: boolean) {
     setPendingId(id)
     try {
-      const res = await fetch(`/api/qr-codes/${id}`, {
+      const res = await apiFetch(`/api/qr-codes/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: !isActive }),

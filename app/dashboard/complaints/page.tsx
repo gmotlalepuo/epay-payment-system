@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatTimestamp, ListPagination, ListToolbar, usePagedItems } from '@/components/list-tools'
+import { apiFetch } from '@/lib/api-client'
 
 interface Complaint {
   id: string
@@ -129,7 +130,7 @@ export default function ComplaintsPage() {
         attachmentUrl = await uploadAttachment(user.id)
       }
 
-      const response = await fetch('/api/complaints', {
+      const response = await apiFetch('/api/complaints', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

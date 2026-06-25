@@ -1,3 +1,4 @@
+import { requireActiveAccount } from '@/lib/api-guards'
 import { getAuthenticatedContext } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { createNotification, createServiceRoleClient, notifyAdmins } from '@/lib/notifications'
@@ -68,10 +69,8 @@ async function loadCounterpartySnapshots(
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthenticatedContext(request)
-    if (!auth) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { auth, response } = await requireActiveAccount(request)
+    if (response) return response
     const { supabase, user } = auth
 
     const body = await request.json()

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { DashboardShell } from '@/components/dashboard-shell'
 import { LoaderCircle, ShieldAlert } from 'lucide-react'
@@ -12,24 +12,29 @@ export default function DashboardLayout({
 }) {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
+    let alive = true
     async function getUser() {
       try {
         const {
           data: { user },
         } = await supabase.auth.getUser()
+        if (!alive) return
         setUser(user)
       } catch (error) {
         console.error('[v0] Error getting user:', error)
       } finally {
-        setLoading(false)
+        if (alive) setLoading(false)
       }
     }
 
     getUser()
-  }, [])
+    return () => {
+      alive = false
+    }
+  }, [supabase])
 
   async function handleLogout() {
     await supabase.auth.signOut()

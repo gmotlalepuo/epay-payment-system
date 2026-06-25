@@ -1,4 +1,5 @@
 import { getAuthenticatedContext } from '@/lib/auth'
+import { requireActiveAccount } from '@/lib/api-guards'
 import { NextRequest, NextResponse } from 'next/server'
 import QRCode from 'qrcode'
 import { randomBytes } from 'crypto'
@@ -11,10 +12,8 @@ function generateToken(): string {
 // POST /api/qr-codes — create a payment QR for a wallet the caller owns
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthenticatedContext(request)
-    if (!auth) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { auth, response } = await requireActiveAccount(request)
+    if (response) return response
     const { supabase, user } = auth
 
     const body = await request.json()

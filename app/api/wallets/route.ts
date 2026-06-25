@@ -1,13 +1,11 @@
-import { getAuthenticatedContext } from '@/lib/auth'
+import { requireActiveAccount } from '@/lib/api-guards'
 import { NextRequest, NextResponse } from 'next/server'
 
 // GET /api/wallets - Fetch user's wallets
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthenticatedContext(request)
-    if (!auth) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { auth, response } = await requireActiveAccount(request)
+    if (response) return response
     const { supabase, user } = auth
 
     // Ensure public.users row exists (backfill if the DB trigger isn't present)
@@ -24,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     if (!existingUser) {
       const metadata = (user.user_metadata ?? {}) as Record<string, string>
-      const { data: inserted, error: insertErr } = await supabase
+      const { error: insertErr } = await supabase
         .from('users')
         .insert({
           id: user.id,
@@ -66,10 +64,8 @@ export async function GET(request: NextRequest) {
 // POST /api/wallets - Create a new wallet
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthenticatedContext(request)
-    if (!auth) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { auth, response } = await requireActiveAccount(request)
+    if (response) return response
     const { supabase, user } = auth
 
     const body = await request.json()
@@ -78,7 +74,7 @@ export async function POST(request: NextRequest) {
     const name = rawName.length > 0 ? rawName.slice(0, 60) : null
 
     // Generate unique wallet number
-    const walletNumber = `W${Date.now()}${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+    const walletNumber = `W${crypto.randomUUID().replace(/-/g, '').slice(0, 14).toUpperCase()}`
 
     const { data: wallet, error } = await supabase
       .from('wallets')

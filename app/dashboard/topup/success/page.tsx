@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { apiFetch } from '@/lib/api-client'
 
 interface ReconcileResult {
   credited: boolean
@@ -43,7 +44,7 @@ export default function TopupSuccessPage() {
 
     async function reconcile() {
       try {
-        const res = await fetch('/api/payments/reconcile-session', {
+        const res = await apiFetch('/api/payments/reconcile-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ session_id: sessionId }),

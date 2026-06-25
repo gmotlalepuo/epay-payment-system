@@ -7,41 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-
-/**
- * Extract a QR token from a free-form input. Accepts:
- *   - Full pay URL:  http(s)://host/pay/ABCD1234XY
- *   - Path only:     /pay/ABCD1234XY
- *   - Bare token:    ABCD1234XY
- * Returns the token or null if it can't be parsed.
- */
-function parseToken(input: string): string | null {
-  const trimmed = input.trim()
-  if (!trimmed) return null
-  // Try as a URL first
-  try {
-    const url = new URL(trimmed)
-    const m = url.pathname.match(/\/pay\/([A-Za-z0-9_-]+)/)
-    if (m) return m[1]
-  } catch {
-    // not a URL — fall through
-  }
-  // Path-only form
-  const m = trimmed.match(/(?:^|\/)pay\/([A-Za-z0-9_-]+)/)
-  if (m) return m[1]
-  // Bare token: alphanumeric, reasonable length
-  if (/^[A-Za-z0-9_-]{6,32}$/.test(trimmed)) return trimmed
-  return null
-}
+import { parseQrToken } from '@/lib/qr-token'
 
 export default function PayByQrPage() {
   const router = useRouter()
-
-  // Paste-link form
   const [linkInput, setLinkInput] = useState('')
   const [pasteError, setPasteError] = useState<string | null>(null)
-
-  // Camera scanner
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [cameraSupported, setCameraSupported] = useState<boolean | null>(null)
@@ -49,9 +20,6 @@ export default function PayByQrPage() {
   const [cameraError, setCameraError] = useState<string | null>(null)
 
   useEffect(() => {
-    // BarcodeDetector is the no-deps way to scan QR in the browser. Chromium
-    // (desktop + Android) supports it natively. Firefox / Safari don't, so we
-    // fall back to the paste form gracefully.
     const supported =
       typeof window !== 'undefined' &&
       'BarcodeDetector' in window &&
@@ -61,12 +29,11 @@ export default function PayByQrPage() {
 
   useEffect(() => {
     return () => stopCamera()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function stopCamera() {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current.getTracks().forEach((track) => track.stop())
       streamRef.current = null
     }
     setScanning(false)
@@ -102,7 +69,7 @@ export default function PayByQrPage() {
         const codes = await detector.detect(videoRef.current)
         const value = codes?.[0]?.rawValue
         if (value) {
-          const token = parseToken(value)
+          const token = parseQrToken(value)
           if (token) {
             stopCamera()
             router.push(`/pay/${token}`)
@@ -110,9 +77,8 @@ export default function PayByQrPage() {
           }
         }
       } catch {
-        // ignore single-frame errors and keep going
+        // Ignore single-frame scanner failures and keep scanning.
       }
-      // ~5 fps is plenty for QR
       setTimeout(tick, 200)
     }
     void tick()
@@ -121,32 +87,28 @@ export default function PayByQrPage() {
   function handlePasteSubmit(e: React.FormEvent) {
     e.preventDefault()
     setPasteError(null)
-    const token = parseToken(linkInput)
+    const token = parseQrToken(linkInput)
     if (!token) {
-      setPasteError("Couldn't read a payment link or token from that. Paste the full /pay/... URL or just the token.")
+      setPasteError("Couldn't read a payment link or token. Paste /pay/token, /qr/pay?token=abc, a full URL, or a token.")
       return
     }
     router.push(`/pay/${token}`)
   }
 
   return (
-    <div className="container mx-auto py-8 max-w-2xl">
+    <div className="container mx-auto max-w-2xl py-8">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Pay by QR</h1>
-        <p className="text-gray-600 mt-2">
-          Scan with your camera, or paste a payment link if scanning isn't an option.
+        <p className="mt-2 text-muted-foreground">
+          Scan with your camera, or paste a payment link if scanning is not available.
         </p>
       </div>
 
       <div className="grid gap-6">
-        {/* Paste link */}
         <Card>
           <CardHeader>
             <CardTitle>Paste a payment link</CardTitle>
-            <CardDescription>
-              Works for any link in the form <span className="font-mono">…/pay/&lt;token&gt;</span>, or
-              just the token on its own.
-            </CardDescription>
+            <CardDescription>Works with /pay/token, /qr/pay?token=abc, full URLs, or a bare token.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handlePasteSubmit} className="space-y-4">
@@ -172,7 +134,6 @@ export default function PayByQrPage() {
           </CardContent>
         </Card>
 
-        {/* Camera scanner */}
         <Card>
           <CardHeader>
             <CardTitle>Scan with camera</CardTitle>
@@ -184,21 +145,15 @@ export default function PayByQrPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {cameraSupported === false ? (
-              <p className="text-sm text-gray-500">
-                Tip: on a phone, the device camera will recognise the QR and open the link
-                directly — you don't need this page at all.
+              <p className="text-sm text-muted-foreground">
+                On a phone, the camera app can usually recognise the QR code and open the link directly.
               </p>
             ) : (
               <>
-                <div className="relative bg-black rounded-md overflow-hidden aspect-video">
-                  <video
-                    ref={videoRef}
-                    className="w-full h-full object-cover"
-                    playsInline
-                    muted
-                  />
+                <div className="relative aspect-video overflow-hidden rounded-md bg-black">
+                  <video ref={videoRef} className="h-full w-full object-cover" playsInline muted />
                   {!scanning && (
-                    <div className="absolute inset-0 flex items-center justify-center text-white text-sm bg-black/50">
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-sm text-white">
                       Camera off
                     </div>
                   )}
@@ -208,24 +163,22 @@ export default function PayByQrPage() {
                     {cameraError}
                   </div>
                 )}
-                <div className="flex gap-2">
-                  {!scanning ? (
-                    <Button type="button" onClick={startCamera} className="flex-1">
-                      Start camera
-                    </Button>
-                  ) : (
-                    <Button type="button" variant="outline" onClick={stopCamera} className="flex-1">
-                      Stop camera
-                    </Button>
-                  )}
-                </div>
+                {!scanning ? (
+                  <Button type="button" onClick={startCamera} className="w-full">
+                    Start camera
+                  </Button>
+                ) : (
+                  <Button type="button" variant="outline" onClick={stopCamera} className="w-full">
+                    Stop camera
+                  </Button>
+                )}
               </>
             )}
           </CardContent>
         </Card>
 
         <Button asChild variant="outline" className="w-full">
-          <Link href="/dashboard">← Back to Dashboard</Link>
+          <Link href="/dashboard">Back to Dashboard</Link>
         </Button>
       </div>
     </div>

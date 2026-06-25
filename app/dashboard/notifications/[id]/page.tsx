@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
+import { apiFetch } from '@/lib/api-client'
 
 interface Notification {
   id: string
@@ -74,7 +75,7 @@ export default function NotificationDetailPage() {
 
       // Mark as read on view
       if (!data.is_read) {
-        await fetch('/api/notifications', {
+        await apiFetch('/api/notifications', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ notificationIds: [id], isRead: true }),

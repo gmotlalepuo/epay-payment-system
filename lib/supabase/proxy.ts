@@ -1,6 +1,18 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const AUTH_PAGES = ['/auth/login', '/auth/signup']
+const PROTECTED_PREFIXES = ['/dashboard', '/admin', '/account-status']
+const RESTRICTED_STATUSES = ['inactive', 'suspended', 'blocked']
+
+function redirectWithCookies(request: NextRequest, supabaseResponse: NextResponse, pathname: string) {
+  const url = request.nextUrl.clone()
+  url.pathname = pathname
+  const response = NextResponse.redirect(url)
+  supabaseResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie))
+  return response
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -41,15 +53,38 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (
-    // if the user is not logged in and the app path, in this case, /protected, is accessed, redirect to the login page
-    request.nextUrl.pathname.startsWith('/protected') &&
-    !user
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
+  const pathname = request.nextUrl.pathname
+  const isAuthPage = AUTH_PAGES.some((path) => pathname === path)
+  const isProtectedPath = PROTECTED_PREFIXES.some((path) => pathname.startsWith(path))
+
+  if (!user && isProtectedPath) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
-    return NextResponse.redirect(url)
+    url.searchParams.set('next', `${pathname}${request.nextUrl.search}`)
+    const response = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie))
+    return response
+  }
+
+  if (user && isAuthPage) {
+    return redirectWithCookies(request, supabaseResponse, '/dashboard')
+  }
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('status')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const restricted = RESTRICTED_STATUSES.includes(profile?.status ?? '')
+    if (restricted && pathname !== '/account-status' && !pathname.startsWith('/auth')) {
+      return redirectWithCookies(request, supabaseResponse, '/account-status')
+    }
+
+    if (!restricted && pathname === '/account-status') {
+      return redirectWithCookies(request, supabaseResponse, '/dashboard')
+    }
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.

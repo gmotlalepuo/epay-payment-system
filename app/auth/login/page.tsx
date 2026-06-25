@@ -2,13 +2,13 @@
 
 export const dynamic = 'force-dynamic'
 
-import React, { Suspense, useState } from 'react'
+import React, { Suspense, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -20,13 +20,25 @@ function LoginContent() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [touched, setTouched] = useState({ email: false, password: false })
 
   const router = useRouter()
   const searchParams = useSearchParams()
   const nextPath = searchParams.get('next') ?? '/'
+  const emailError = useMemo(() => {
+    if (!touched.email) return null
+    if (!email.trim()) return 'Email is required.'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Enter a valid email address.'
+    return null
+  }, [email, touched.email])
+  const passwordError = touched.password && !password ? 'Password is required.' : null
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    setTouched({ email: true, password: true })
+    const invalidEmail = !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+    if (invalidEmail || !password) return
     setIsLoading(true)
     setError(null)
 
@@ -80,18 +92,39 @@ function LoginContent() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setTouched((current) => ({ ...current, email: true }))}
+                    aria-invalid={Boolean(emailError)}
+                    aria-describedby={emailError ? 'email-error' : undefined}
                   />
+                  {emailError && <p id="email-error" className="text-sm text-destructive">{emailError}</p>}
                 </div>
 
                 <div className="grid gap-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onBlur={() => setTouched((current) => ({ ...current, password: true }))}
+                      aria-invalid={Boolean(passwordError)}
+                      aria-describedby={passwordError ? 'password-error' : undefined}
+                      className="pr-11"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 size-8 -translate-y-1/2"
+                      onClick={() => setShowPassword((visible) => !visible)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </Button>
+                  </div>
+                  {passwordError && <p id="password-error" className="text-sm text-destructive">{passwordError}</p>}
                 </div>
 
                 {error && (
@@ -109,6 +142,12 @@ function LoginContent() {
                 <Link href="/auth/signup" className="font-semibold text-foreground">
                   Sign up
                 </Link>
+              </div>
+              <div className="flex gap-3 rounded-2xl border bg-muted/50 p-4 text-sm text-muted-foreground">
+                <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
+                <p>
+                  Your session is protected with Supabase Auth. We will ask you to sign in again if your session expires.
+                </p>
               </div>
             </div>
 
