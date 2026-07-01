@@ -8,8 +8,9 @@ import { NotificationBell } from '@/components/notification-bell'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { BrandLogo } from '@/components/brand-logo'
+import { InactivityLogout } from '@/components/inactivity-logout'
 
-export default function AdminShell({ children }: { children: React.ReactNode }) {
+export default function AdminShell({ children, userId }: { children: React.ReactNode; userId: string }) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -37,6 +38,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </div>
       </header>
       <main className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8"><div className="page-enter">{children}</div></main>
+      <InactivityLogout sessionKey={userId} onLogout={handleLogout} />
     </div>
   )
 }

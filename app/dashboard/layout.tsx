@@ -54,6 +54,6 @@ export default function DashboardLayout({
   }
 
   return (
-    <DashboardShell email={user.email ?? 'Account'} onLogout={handleLogout}>{children}</DashboardShell>
+    <DashboardShell email={user.email ?? 'Account'} userId={user.id} onLogout={handleLogout}>{children}</DashboardShell>
   )
 }

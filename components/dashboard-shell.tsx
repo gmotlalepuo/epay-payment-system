@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { BrandLogo } from '@/components/brand-logo'
+import { InactivityLogout } from '@/components/inactivity-logout'
 
 const navigation = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, exact: true },
@@ -65,7 +66,7 @@ function ServicesMenu({ mobile }: { mobile?: boolean }) {
   )
 }
 
-export function DashboardShell({ children, email, onLogout }: { children: React.ReactNode; email: string; onLogout: () => void | Promise<void> }) {
+export function DashboardShell({ children, email, userId, onLogout }: { children: React.ReactNode; email: string; userId: string; onLogout: () => void | Promise<void> }) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
@@ -107,6 +108,7 @@ export function DashboardShell({ children, email, onLogout }: { children: React.
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <InactivityLogout sessionKey={userId} onLogout={onLogout} />
     </div>
   )
 }

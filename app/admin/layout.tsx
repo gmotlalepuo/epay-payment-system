@@ -10,5 +10,5 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const role = await getUserRole()
   if (role !== 'super_admin') return redirect('/dashboard')
 
-  return <AdminShell>{children}</AdminShell>
+  return <AdminShell userId={user.id}>{children}</AdminShell>
 }
