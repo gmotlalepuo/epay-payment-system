@@ -11,11 +11,31 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<{
+    first_name: string | null
+    last_name: string | null
+    avatar_url: string | null
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     let alive = true
+    async function loadProfile(userId: string) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('first_name, last_name, avatar_url')
+        .eq('id', userId)
+        .maybeSingle()
+
+      if (!alive) return
+      if (error) {
+        console.error('[dashboard-layout] Error loading profile:', error)
+        return
+      }
+      setProfile(data ?? null)
+    }
+
     async function getUser() {
       try {
         const {
@@ -23,6 +43,9 @@ export default function DashboardLayout({
         } = await supabase.auth.getUser()
         if (!alive) return
         setUser(user)
+        if (user) {
+          await loadProfile(user.id)
+        }
       } catch (error) {
         console.error('[v0] Error getting user:', error)
       } finally {
@@ -31,10 +54,17 @@ export default function DashboardLayout({
     }
 
     getUser()
+    function handleProfileUpdated() {
+      if (user?.id) {
+        void loadProfile(user.id)
+      }
+    }
+    window.addEventListener('botsapay-profile-updated', handleProfileUpdated)
     return () => {
       alive = false
+      window.removeEventListener('botsapay-profile-updated', handleProfileUpdated)
     }
-  }, [supabase])
+  }, [supabase, user?.id])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -54,6 +84,14 @@ export default function DashboardLayout({
   }
 
   return (
-    <DashboardShell email={user.email ?? 'Account'} userId={user.id} onLogout={handleLogout}>{children}</DashboardShell>
+    <DashboardShell
+      email={user.email ?? 'Account'}
+      userId={user.id}
+      displayName={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ')}
+      avatarUrl={profile?.avatar_url}
+      onLogout={handleLogout}
+    >
+      {children}
+    </DashboardShell>
   )
 }

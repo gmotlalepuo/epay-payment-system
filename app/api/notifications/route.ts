@@ -1,4 +1,5 @@
 import { getAuthenticatedContext } from '@/lib/auth'
+import { createServiceRoleClient } from '@/lib/notifications'
 import { NextRequest, NextResponse } from 'next/server'
 
 // GET /api/notifications - Get user's notifications
@@ -9,10 +10,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const { supabase, user } = auth
+    const db = createServiceRoleClient() ?? supabase
 
     const unreadOnly = request.nextUrl.searchParams.get('unread') === 'true'
 
-    let query = supabase
+    let query = db
       .from('notifications')
       .select('*')
       .eq('user_id', user.id)
@@ -45,6 +47,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const { supabase, user } = auth
+    const db = createServiceRoleClient() ?? supabase
 
     const { notificationIds, isRead = true } = await request.json()
 
@@ -55,7 +58,7 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    const { data: notifications, error } = await supabase
+    const { data: notifications, error } = await db
       .from('notifications')
       .update({
         is_read: isRead,
@@ -70,7 +73,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Log the action
-    await supabase.from('audit_logs').insert({
+    await db.from('audit_logs').insert({
       user_id: user.id,
       action: `notifications_marked_${isRead ? 'read' : 'unread'}`,
       resource_type: 'notification',
@@ -100,6 +103,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const { supabase, user } = auth
+    const db = createServiceRoleClient() ?? supabase
 
     const { notificationId } = await request.json()
 
@@ -110,7 +114,7 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from('notifications')
       .delete()
       .eq('id', notificationId)
@@ -121,7 +125,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Log the action
-    await supabase.from('audit_logs').insert({
+    await db.from('audit_logs').insert({
       user_id: user.id,
       action: 'notification_deleted',
       resource_type: 'notification',

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, ShieldCheck } from 'lucide-react'
+import { Camera, Loader2, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { apiFetch } from '@/lib/api-client'
@@ -17,6 +17,14 @@ interface UserProfile {
   first_name: string | null
   last_name: string | null
   phone_number: string | null
+  avatar_url?: string | null
+  date_of_birth?: string | null
+  address_line1?: string | null
+  address_line2?: string | null
+  city?: string | null
+  state?: string | null
+  postal_code?: string | null
+  country?: string | null
 }
 
 type NotificationPreferences = {
@@ -75,6 +83,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [savingProfile, setSavingProfile] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [savingSecurity, setSavingSecurity] = useState(false)
   const [sendingReset, setSendingReset] = useState(false)
   const supabase = createClient()
@@ -117,17 +126,63 @@ export default function SettingsPage() {
           first_name: profile.first_name ?? '',
           last_name: profile.last_name ?? '',
           phone_number: profile.phone_number ?? '',
+          date_of_birth: profile.date_of_birth ?? '',
+          address_line1: profile.address_line1 ?? '',
+          address_line2: profile.address_line2 ?? '',
+          city: profile.city ?? '',
+          state: profile.state ?? '',
+          postal_code: profile.postal_code ?? '',
+          country: profile.country ?? '',
         }),
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error ?? 'Failed to update profile')
+      if (!response.ok) throw new Error(data.userMessage ?? data.error ?? 'Failed to update profile')
       setProfile(data.profile)
+      window.dispatchEvent(new Event('botsapay-profile-updated'))
       toast.success('Profile updated')
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Failed to update profile'
       toast.error('Could not update profile', { description: msg })
     } finally {
       setSavingProfile(false)
+    }
+  }
+
+  async function handleAvatarChange(file: File | null) {
+    if (!file || !profile) return
+
+    const accepted = ['image/jpeg', 'image/png', 'image/webp']
+    if (!accepted.includes(file.type)) {
+      toast.error('Unsupported file', { description: 'Choose a JPG, PNG, or WEBP image.' })
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File too large', { description: 'Profile picture must be under 5 MB.' })
+      return
+    }
+
+    setUploadingAvatar(true)
+    try {
+      const formData = new FormData()
+      formData.append('avatar', file)
+      const response = await apiFetch('/api/users/profile/avatar', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.userMessage ?? data.error ?? 'Could not upload avatar')
+      if (data.profile) {
+        setProfile(data.profile)
+      } else if (data.avatar_url) {
+        setProfile({ ...profile, avatar_url: data.avatar_url })
+      }
+      window.dispatchEvent(new Event('botsapay-profile-updated'))
+      toast.success('Profile picture updated')
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Could not upload avatar'
+      toast.error('Avatar upload failed', { description: msg })
+    } finally {
+      setUploadingAvatar(false)
     }
   }
 
@@ -249,9 +304,46 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Profile Information</CardTitle>
-          <CardDescription>Update your account details.</CardDescription>
+          <CardDescription>Update your account details, profile photo, and address.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex flex-col gap-4 rounded-lg border bg-muted/30 p-4 sm:flex-row sm:items-center">
+            <div className="flex size-24 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-2xl font-bold text-primary">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="Profile avatar" className="size-full object-cover" />
+              ) : (
+                `${profile?.first_name?.[0] ?? ''}${profile?.last_name?.[0] ?? ''}`.trim() || 'BP'
+              )}
+            </div>
+            <div className="flex-1 space-y-2">
+              <p className="font-medium">Profile photo</p>
+              <p className="text-sm text-muted-foreground">Use a JPG, PNG, or WEBP image under 5 MB.</p>
+              <div>
+                <Label
+                  htmlFor="avatar"
+                  className="inline-flex cursor-pointer items-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent"
+                >
+                  {uploadingAvatar ? (
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <Camera className="mr-2 size-4" />
+                  )}
+                  {uploadingAvatar ? 'Uploading...' : 'Change photo'}
+                </Label>
+                <Input
+                  id="avatar"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={uploadingAvatar}
+                  onChange={(event) => {
+                    void handleAvatarChange(event.target.files?.[0] ?? null)
+                    event.currentTarget.value = ''
+                  }}
+                />
+              </div>
+            </div>
+          </div>
           <div className="space-y-1">
             <Label>Email</Label>
             <Input value={profile?.email ?? ''} disabled />
@@ -282,6 +374,71 @@ export default function SettingsPage() {
               onChange={(e) => profile && setProfile({ ...profile, phone_number: e.target.value })}
               placeholder="+267..."
             />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="date_of_birth">Date of birth</Label>
+            <Input
+              id="date_of_birth"
+              type="date"
+              value={profile?.date_of_birth ?? ''}
+              onChange={(e) => profile && setProfile({ ...profile, date_of_birth: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <div>
+              <h3 className="font-medium">Address</h3>
+              <p className="text-sm text-muted-foreground">Used for customer profile records and support verification.</p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="address_line1">Address line 1</Label>
+              <Input
+                id="address_line1"
+                value={profile?.address_line1 ?? ''}
+                onChange={(e) => profile && setProfile({ ...profile, address_line1: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="address_line2">Address line 2</Label>
+              <Input
+                id="address_line2"
+                value={profile?.address_line2 ?? ''}
+                onChange={(e) => profile && setProfile({ ...profile, address_line2: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="city">City</Label>
+                <Input
+                  id="city"
+                  value={profile?.city ?? ''}
+                  onChange={(e) => profile && setProfile({ ...profile, city: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="state">State / region</Label>
+                <Input
+                  id="state"
+                  value={profile?.state ?? ''}
+                  onChange={(e) => profile && setProfile({ ...profile, state: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="postal_code">Postal code</Label>
+                <Input
+                  id="postal_code"
+                  value={profile?.postal_code ?? ''}
+                  onChange={(e) => profile && setProfile({ ...profile, postal_code: e.target.value })}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="country">Country</Label>
+                <Input
+                  id="country"
+                  value={profile?.country ?? ''}
+                  onChange={(e) => profile && setProfile({ ...profile, country: e.target.value })}
+                />
+              </div>
+            </div>
           </div>
           <Button onClick={handleUpdateProfile} className="w-full" disabled={savingProfile}>
             {savingProfile && <Loader2 className="mr-2 size-4 animate-spin" />}
